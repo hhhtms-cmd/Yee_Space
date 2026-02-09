@@ -3,67 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee's Photo Particle Space</title>
+    <title>Yee's Memory Space</title>
     <style>
         :root { --accent-color: #00ffaa; --bg-color: #050505; }
         body { margin: 0; background: var(--bg-color); overflow: hidden; color: white; font-family: "PingFang SC", sans-serif; }
         
-        /* 1. 初始 Key 输入 */
-        #welcome-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #api-key-input { background: rgba(255,255,255,0.1); border: 1px solid #333; color: white; padding: 12px; width: 300px; border-radius: 8px; text-align: center; margin-bottom: 20px; outline: none; }
-        #start-btn { padding: 10px 40px; border-radius: 20px; background: var(--accent-color); color: black; border: none; font-weight: bold; cursor: pointer; }
+        /* Key 输入覆盖层 */
+        #key-auth { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.5s; }
+        .auth-box { text-align: center; max-width: 400px; padding: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; background: rgba(255,255,255,0.02); }
+        #api-key-input { background: rgba(255,255,255,0.1); border: 1px solid #333; color: #00ffaa; padding: 12px; width: 280px; border-radius: 8px; text-align: center; margin: 20px 0; outline: none; font-family: monospace; }
+        .enter-btn { background: var(--accent-color); color: black; border: none; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-        /* 2. 上传按钮样式 (仿照截图) */
-        #upload-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; text-align: center; }
-        .upload-label { background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.3); padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 12px; transition: 0.3s; }
-        .upload-label:hover { background: rgba(255,255,255,0.2); border-color: var(--accent-color); }
+        /* 上传与控制 UI */
+        #upload-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
+        .upload-label { background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.3); padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 11px; }
         #file-input { display: none; }
 
-        /* 3. 主 UI */
-        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 2px; z-index: 10; opacity: 0.6; }
-        #chat-area { position: absolute; top: 150px; width: 100%; text-align: center; z-index: 5; padding: 0 20px; box-sizing: border-box; }
-        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 10px; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        #chat-area { position: absolute; top: 180px; width: 100%; text-align: center; z-index: 5; }
+        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 10px; padding: 0 40px; }
         
         #controls { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 20; }
         #mic-btn { width: 60px; height: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
         #mic-btn.active { border-color: #ff4444; box-shadow: 0 0 20px #ff4444; }
 
-        /* 4. 结果卡片 */
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(15px); }
         .card { width: 280px; padding: 40px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; text-align: center; }
     </style>
 </head>
 <body>
 
-    <div id="welcome-screen">
-        <h2 style="font-weight: 200; letter-spacing: 4px;">YEE'S SPACE</h2>
-        <input type="text" id="api-key-input" placeholder="Paste Gemini API Key Here">
-        <button id="start-btn">ENTER SPACE</button>
+    <div id="key-auth">
+        <div class="auth-box">
+            <h2 style="font-weight: 200; letter-spacing: 5px;">YEE'S SPACE</h2>
+            <p style="font-size: 12px; opacity: 0.5;">请输入您的 Google Gemini API Key 以激活空间</p>
+            <input type="password" id="api-key-input" placeholder="AIzaSy...">
+            <br>
+            <button class="enter-btn" onclick="saveAndStart()">进入空间</button>
+            <p style="font-size: 10px; opacity: 0.3; margin-top: 20px;">Key 仅保存在您的浏览器本地</p>
+        </div>
     </div>
 
     <div id="upload-container">
-        <label for="file-input" class="upload-label">📸 UPLOAD PHOTO TO PARTICLE</label>
+        <label for="file-input" class="upload-label">📸 上传照片生成记忆粒子</label>
         <input type="file" id="file-input" accept="image/*">
     </div>
 
-    <nav>
-        <div>YEE'S MEMORY</div>
-        <div>GEMINI PRO</div>
-    </nav>
-
     <div id="chat-area">
-        <div id="ai-reply">你好 Yee，上传一张照片，让我们开始记忆旅程。</div>
-        <div id="user-speech" style="color: rgba(255,255,255,0.4); font-size: 14px;"></div>
+        <div id="ai-reply">你好 Yee，上传照片后，对我说话或点击麦克风。</div>
+        <div id="user-speech" style="color: rgba(255,255,255,0.4); font-size: 14px; margin-top: 10px;"></div>
     </div>
 
     <div id="controls">
         <div id="mic-btn">🎙️</div>
-        <button id="save-btn" style="margin-top:20px; background:none; border:1px solid #444; color:white; padding:8px 15px; border-radius:15px; font-size:10px; cursor:pointer;">SAVE MEMORY</button>
+        <button id="save-btn" style="margin-top:20px; background:none; border:1px solid #444; color:white; padding:8px 15px; border-radius:15px; font-size:10px; cursor:pointer;">生成感悟卡片</button>
     </div>
 
     <div id="overlay" onclick="this.style.display='none'">
         <div class="card">
-            <div id="summary-text" style="line-height:1.8;">正在生成总结...</div>
+            <div id="summary-text" style="line-height:1.8; font-size: 15px;"></div>
         </div>
     </div>
 
@@ -74,20 +71,36 @@
     <script type="module">
         import * as THREE from 'three';
 
-        let API_KEY = "";
+        let API_KEY = localStorage.getItem('yee_space_key') || "";
         let scene, camera, renderer, particles, geometry;
         let audioContext, analyser, dataArray, isAudioReady = false;
         let conversationHistory = [];
 
-        // --- 1. 初始化环境 ---
-        document.getElementById('start-btn').onclick = () => {
-            const key = document.getElementById('api-key-input').value.trim();
-            if(key.length < 10) return alert("Please enter valid Key");
-            API_KEY = key;
-            document.getElementById('welcome-screen').style.display = 'none';
+        // 启动逻辑
+        if (API_KEY) {
+            document.getElementById('key-auth').style.display = 'none';
+            initSpace();
+        }
+
+        window.saveAndStart = function() {
+            const input = document.getElementById('api-key-input').value.trim();
+            if (input.startsWith("AIza")) {
+                localStorage.setItem('yee_space_key', input);
+                API_KEY = input;
+                document.getElementById('key-auth').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('key-auth').style.display = 'none';
+                    initSpace();
+                }, 500);
+            } else {
+                alert("请输入有效的 Gemini API Key");
+            }
+        }
+
+        function initSpace() {
             initThree();
             initAudio();
-        };
+        }
 
         function initThree() {
             scene = new THREE.Scene();
@@ -112,73 +125,42 @@
             } catch(e) { console.warn("Mic not available"); }
         }
 
-        // --- 2. 图片转粒子核心逻辑 ---
+        // 照片转粒子逻辑
         document.getElementById('file-input').onchange = function(e) {
             const file = e.target.files[0];
             if(!file) return;
-
             const reader = new FileReader();
             reader.onload = function(event) {
                 const img = new Image();
                 img.onload = function() {
-                    createParticlesFromImage(img);
+                    if(particles) scene.remove(particles);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const size = 128;
+                    canvas.width = size; canvas.height = size;
+                    ctx.drawImage(img, 0, 0, size, size);
+                    const imgData = ctx.getImageData(0, 0, size, size).data;
+                    const positions = [], colors = [];
+                    for (let y = 0; y < size; y++) {
+                        for (let x = 0; x < size; x++) {
+                            const i = (y * size + x) * 4;
+                            if(imgData[i+3] > 128) {
+                                positions.push((x - size/2) * 0.12, -(y - size/2) * 0.12, 0);
+                                colors.push(imgData[i]/255, imgData[i+1]/255, imgData[i+2]/255);
+                            }
+                        }
+                    }
+                    geometry = new THREE.BufferGeometry();
+                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                    particles = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: 0.8 }));
+                    scene.add(particles);
                 };
                 img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         };
 
-        function createParticlesFromImage(img) {
-            // 清除旧粒子
-            if(particles) scene.remove(particles);
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // 为了性能，将图片压缩到 120x120 的采样点
-            const size = 120;
-            canvas.width = size;
-            canvas.height = size;
-            ctx.drawImage(img, 0, 0, size, size);
-            
-            const imgData = ctx.getImageData(0, 0, size, size).data;
-            const positions = [];
-            const colors = [];
-
-            for (let y = 0; y < size; y++) {
-                for (let x = 0; x < size; x++) {
-                    const i = (y * size + x) * 4;
-                    const r = imgData[i] / 255;
-                    const g = imgData[i+1] / 255;
-                    const b = imgData[i+2] / 255;
-                    const a = imgData[i+3] / 255;
-
-                    if(a > 0.1) { // 过滤透明像素
-                        // 居中坐标
-                        positions.push((x - size/2) * 0.12, -(y - size/2) * 0.12, 0);
-                        colors.push(r, g, b);
-                    }
-                }
-            }
-
-            geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-            const material = new THREE.PointsMaterial({
-                size: 0.07,
-                vertexColors: true,
-                transparent: true,
-                opacity: 0.8
-            });
-
-            particles = new THREE.Points(geometry, material);
-            scene.add(particles);
-            
-            document.getElementById('ai-reply').innerText = "图片已凝结为记忆粒子。";
-        }
-
-        // --- 3. 动画循环 ---
         function animate() {
             requestAnimationFrame(animate);
             let vol = 0;
@@ -186,28 +168,24 @@
                 analyser.getByteFrequencyData(dataArray);
                 vol = dataArray.reduce((a, b) => a + b) / dataArray.length;
             }
-
             if(particles) {
                 const posArr = geometry.attributes.position.array;
                 const time = performance.now() * 0.002;
                 for (let i = 0; i < posArr.length; i += 3) {
-                    // 粒子随正弦波和声音起伏
-                    const wave = Math.sin(time + posArr[i] * 0.5);
-                    posArr[i + 2] = wave * (0.2 + vol * 0.03); 
+                    posArr[i + 2] = Math.sin(time + posArr[i] * 0.5) * (0.2 + vol * 0.04); 
                 }
                 geometry.attributes.position.needsUpdate = true;
-                particles.rotation.y += 0.001; // 缓慢自转
+                particles.rotation.y += 0.001;
             }
             renderer.render(scene, camera);
         }
 
-        // --- 4. 语音/聊天交互 ---
         async function runChat(text) {
             if(!text) return;
             conversationHistory.push({ role: "user", parts: [{ text: text }] });
-            document.getElementById('ai-reply').innerText = "Thinking...";
-
+            document.getElementById('ai-reply').innerText = "感悟中...";
             try {
+                // 使用更通用的 gemini-pro 模型
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -217,18 +195,15 @@
                 const reply = data.candidates[0].content.parts[0].text;
                 document.getElementById('ai-reply').innerText = reply;
                 conversationHistory.push({ role: "model", parts: [{ text: reply }] });
-            } catch (e) { document.getElementById('ai-reply').innerText = "API 连接失败"; }
+            } catch (e) { document.getElementById('ai-reply').innerText = "API 报错，请检查 Key 是否有效"; }
         }
 
-        // 语音识别设置
+        // 语音识别
         const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
         if(Speech) {
             const rec = new Speech();
             rec.lang = 'zh-CN';
-            document.getElementById('mic-btn').onclick = () => {
-                rec.start();
-                document.getElementById('mic-btn').classList.add('active');
-            };
+            document.getElementById('mic-btn').onclick = () => { rec.start(); document.getElementById('mic-btn').classList.add('active'); };
             rec.onresult = (e) => {
                 const t = e.results[0][0].transcript;
                 document.getElementById('user-speech').innerText = `“ ${t} ”`;
@@ -237,14 +212,10 @@
             rec.onend = () => document.getElementById('mic-btn').classList.remove('active');
         }
 
-        // 生成总结卡片
+        // 卡片总结
         document.getElementById('save-btn').onclick = async () => {
             document.getElementById('overlay').style.display = 'flex';
-            if(conversationHistory.length === 0) {
-                document.getElementById('summary-text').innerText = "还没有对话记录。";
-                return;
-            }
-            const prompt = "总结我们的对话，写一段诗意的感悟，30字以内。";
+            const prompt = "总结我们的对话，写一段30字以内富有诗意的感悟。";
             try {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
                     method: 'POST',
@@ -253,14 +224,8 @@
                 });
                 const data = await res.json();
                 document.getElementById('summary-text').innerText = data.candidates[0].content.parts[0].text;
-            } catch(e) { document.getElementById('summary-text').innerText = "感悟生成失败"; }
+            } catch(e) { document.getElementById('summary-text').innerText = "暂无感悟"; }
         };
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
