@@ -1,123 +1,30 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee的日记空间 - Free Tier 适配版</title>
-    <style>
-        :root { --accent-color: #00ffaa; }
-        body { margin: 0; background: #000; overflow: hidden; color: white; font-family: "PingFang SC", sans-serif; }
-        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 10; opacity: 0.8; font-size: 12px; letter-spacing: 2px; }
-        #status-bar { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); z-index: 10; }
-        .dot { width: 8px; height: 8px; background: var(--accent-color); border-radius: 50%; margin-right: 8px; box-shadow: 0 0 10px var(--accent-color); }
-        #chat-area { position: absolute; top: 160px; width: 100%; text-align: center; z-index: 5; padding: 0 20px; box-sizing: border-box; }
-        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 15px; min-height: 1.5em; text-shadow: 0 0 10px rgba(0,0,0,0.5); padding: 0 10%; line-height: 1.6; }
-        #user-speech { font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 15px; min-height: 1.2em; }
-        #text-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: white; text-align: center; width: 220px; outline: none; font-size: 13px; padding: 10px 15px; transition: 0.3s; }
-        #text-input:focus { border-color: var(--accent-color); background: rgba(255,255,255,0.1); }
-        #start-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: pointer; letter-spacing: 5px; font-weight: 300; }
-    </style>
-</head>
+<html>
 <body>
-
-    <div id="start-mask">CLICK TO ACTIVATE SPACE</div>
-
-    <nav>
-        <div style="font-weight: 500;">Yee的日记空间</div>
-        <div id="debug-info" style="font-size: 9px; opacity: 0.3;">FREE TIER MODE</div>
-    </nav>
-
-    <div id="status-bar"><div class="dot"></div> <span id="status-text">GEMINI READY</span></div>
-
-    <div id="chat-area">
-        <div id="ai-reply">你好 Yee，我已切换至免费版专用通道。</div>
-        <div id="user-speech">等待信号输入...</div>
-        <input type="text" id="text-input" placeholder="输入内容后按回车...">
-    </div>
-
-    <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-    </script>
-
-    <script type="module">
-        import * as THREE from 'three';
-
+    <div id="result">正在诊断你的 API Key 权限...</div>
+    <script>
         const API_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
-        let conversationHistory = [];
-
-        // 核心对话函数：采用自适应模型路径
-        async function runChat(text) {
-            if(!text.trim()) return;
-            
-            conversationHistory.push({ role: "user", parts: [{ text: text }] });
-            const replyBox = document.getElementById('ai-reply');
-            replyBox.innerText = "正在同步星际信号...";
-
-            // 优先尝试 Free Tier 最常用的 v1beta 路径
-            const endpoints = [
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-                `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`,
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`
-            ];
-
-            for (let url of endpoints) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: conversationHistory })
+        async function checkModels() {
+            try {
+                // 尝试拉取你这个 Key 真正能看到的所有模型
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+                const data = await res.json();
+                
+                if (data.models) {
+                    let html = "<h3>你的 Key 可以使用的模型列表：</h3><ul>";
+                    data.models.forEach(m => {
+                        html += `<li><b>${m.name}</b> (支持操作: ${m.supportedGenerationMethods.join(', ')})</li>`;
                     });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.candidates) {
-                        const reply = data.candidates[0].content.parts[0].text;
-                        replyBox.innerText = reply;
-                        conversationHistory.push({ role: "model", parts: [{ text: reply }] });
-                        document.getElementById('debug-info').innerText = "STABLE CONNECTION";
-                        return; // 成功后退出循环
-                    }
-                } catch (e) {
-                    console.error("当前路径失败，尝试下一个...", e);
+                    html += "</ul><p>请从中挑选一个名称填入代码中。</p>";
+                    document.getElementById('result').innerHTML = html;
+                } else {
+                    document.getElementById('result').innerHTML = "错误详情：" + JSON.stringify(data.error);
                 }
+            } catch (e) {
+                document.getElementById('result').innerText = "请求失败，请检查网络或 Key 格式。";
             }
-
-            // 如果走到这一步，说明所有组合都失败了
-            replyBox.innerHTML = `<span style="color:#ff5555;">[404] 无法找到可用模型</span><br><small>请确保在 Google AI Studio 中已启用 Generative Language API</small>`;
         }
-
-        // --- 极简 3D 背景 ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        const stars = new THREE.BufferGeometry();
-        const starPos = [];
-        for(let i=0; i<3000; i++) starPos.push((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*30);
-        stars.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
-        const starCloud = new THREE.Points(stars, new THREE.PointsMaterial({ size: 0.02, color: 0x00ffaa }));
-        scene.add(starCloud);
-        camera.position.z = 10;
-
-        function animate() {
-            requestAnimationFrame(animate);
-            starCloud.rotation.y += 0.0005;
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // 交互逻辑
-        document.getElementById('start-mask').onclick = () => document.getElementById('start-mask').style.display = 'none';
-        document.getElementById('text-input').onkeypress = (e) => {
-            if(e.key === 'Enter') {
-                const val = e.target.value;
-                document.getElementById('user-speech').innerText = `“ ${val} ”`;
-                runChat(val);
-                e.target.value = "";
-            }
-        };
+        checkModels();
     </script>
 </body>
 </html>
