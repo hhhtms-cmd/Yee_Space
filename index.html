@@ -3,51 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee Space Final Fix</title>
+    <title>Yee Space - Fixed</title>
     <style>
-        body { margin: 0; background: #050505; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        #display { width: 85%; text-align: center; font-size: 18px; line-height: 1.6; min-height: 100px; text-shadow: 0 0 10px rgba(0,255,170,0.3); }
-        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 1px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; margin-top: 30px; }
-        #mic-btn.active { box-shadow: 0 0 30px #00ffaa; background: rgba(0,255,170,0.1); }
-        #error-info { position: fixed; bottom: 20px; color: #ff4444; font-size: 11px; width: 90%; text-align: center; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 5px; display: none; }
-        .reset-btn { position: fixed; top: 20px; right: 20px; background: none; border: 1px solid #333; color: #555; padding: 5px 10px; border-radius: 10px; cursor: pointer; font-size: 10px; }
+        body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        #display { width: 85%; text-align: center; font-size: 20px; min-height: 100px; line-height: 1.6; }
+        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 1px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; margin-top: 40px; }
+        #mic-btn.active { box-shadow: 0 0 30px #00ffaa; background: rgba(0,255,170,0.2); }
+        #err-log { position: fixed; bottom: 20px; color: #ff4444; font-size: 12px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; display: none; width: 80%; text-align: center; }
+        .reset-link { position: fixed; top: 10px; right: 10px; color: #333; cursor: pointer; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <button class="reset-btn" onclick="resetKey()">RESET KEY</button>
+    <div class="reset-link" onclick="resetKey()">[ 重置 API KEY ]</div>
 
-    <div id="display">正在建立星际连接...</div>
-    
+    <div id="display">正在初始化星际链接...</div>
     <div id="mic-btn">🎙️</div>
-    
-    <div id="error-info"></div>
+    <div id="err-log"></div>
 
     <script>
-        let API_KEY = localStorage.getItem('yee_final_fix_key');
+        // 使用新存储名称，强制刷新一次 Key 的读取
+        let API_KEY = localStorage.getItem('yee_fixed_v4');
 
         if (!API_KEY) {
-            API_KEY = prompt("检测到 404 错误已定位，请输入 API Key 重新激活：");
+            API_KEY = prompt("404 错误已捕获，请重新输入 API Key 激活稳定版路径：");
             if (API_KEY) {
-                localStorage.setItem('yee_final_fix_key', API_KEY);
+                localStorage.setItem('yee_fixed_v4', API_KEY);
                 location.reload();
             }
         }
 
         const display = document.getElementById('display');
-        const errInfo = document.getElementById('error-info');
-        if(API_KEY) display.innerText = "连接已建立。请按住麦克风说话。";
+        const errLog = document.getElementById('err-log');
+        if(API_KEY) display.innerText = "星际连线已就绪。请按住麦克风说话。";
 
         function resetKey() {
-            localStorage.removeItem('yee_final_fix_key');
+            localStorage.removeItem('yee_fixed_v4');
             location.reload();
         }
 
-        async function callGemini(text) {
-            display.innerText = "🌌 正在穿越星云...";
-            errInfo.style.display = "none";
+        async function chat(text) {
+            display.innerText = "🌌 信号传输中...";
+            errLog.style.display = "none";
 
-            // 修复关键：尝试 v1beta 路径 + 完整模型路径
+            // 修正后的关键 URL：使用 v1beta 和 models/ 前缀
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
             try {
@@ -70,34 +69,35 @@
                 }
             } catch (err) {
                 console.error(err);
-                display.innerText = "⚠️ 传输中断";
-                errInfo.style.display = "block";
-                errInfo.innerText = "诊断反馈: " + err.message;
+                display.innerText = "⚠️ 连线中断";
+                errLog.style.display = "block";
+                errLog.innerText = "诊断信息: " + err.message;
             }
         }
 
         // 语音逻辑
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'zh-CN';
+        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (Speech) {
+            const rec = new Speech();
+            rec.lang = 'zh-CN';
             const btn = document.getElementById('mic-btn');
 
             btn.onclick = () => {
-                recognition.start();
-                btn.classList.add('active');
-                display.innerText = "正在倾听...";
+                try {
+                    rec.start();
+                    btn.classList.add('active');
+                    display.innerText = "正在倾听...";
+                } catch(e) {}
             };
 
-            recognition.onresult = (e) => {
-                callGemini(e.results[0][0].transcript);
+            rec.onresult = (e) => {
+                const result = e.results[0][0].transcript;
+                chat(result);
             };
 
-            recognition.onend = () => {
-                btn.classList.remove('active');
-            };
+            rec.onend = () => btn.classList.remove('active');
         } else {
-            display.innerText = "请使用 Chrome 浏览器以开启语音功能";
+            display.innerText = "当前浏览器暂不支持语音功能";
         }
     </script>
 </body>
