@@ -3,56 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee's Space | Particle</title>
+    <title>Yee的日记空间 - 终极修复版</title>
     <style>
-        :root { --main: #00ffaa; --bg: #050505; }
-        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; overflow: hidden; }
-
-        /* 顶部状态与工具 */
-        #top-bar { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 100; }
-        .action-btn { background: rgba(255,255,255,0.1); border: 1px solid #444; color: white; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; backdrop-filter: blur(5px); }
-        
-        /* 核心对话区 */
-        #chat-container { position: absolute; top: 120px; width: 100%; text-align: center; z-index: 10; padding: 0 20px; box-sizing: border-box; pointer-events: none; }
-        #ai-msg { font-size: 20px; line-height: 1.6; min-height: 40px; text-shadow: 0 0 15px rgba(0,255,170,0.5); }
-        #user-msg { font-size: 14px; opacity: 0.4; margin-top: 15px; font-style: italic; }
-        #debug-tag { font-size: 10px; color: #333; margin-top: 10px; }
-
-        /* 底部交互 */
-        #bottom-ctrl { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); z-index: 100; text-align: center; }
-        #mic-circle { width: 70px; height: 70px; border-radius: 50%; border: 1px solid rgba(0,255,170,0.3); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; transition: 0.3s; }
-        #mic-circle.active { border-color: var(--main); box-shadow: 0 0 30px var(--main); transform: scale(1.1); }
-
-        /* 登录框 */
-        #login-box { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .box-content { background: #111; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 20px 0; background: #222; border: 1px solid #444; color: var(--main); text-align: center; border-radius: 5px; }
+        :root { --accent-color: #00ffaa; }
+        body { margin: 0; background: #000; overflow: hidden; color: white; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 10; opacity: 0.8; font-size: 12px; letter-spacing: 2px; }
+        #status-bar { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); z-index: 10; }
+        .dot { width: 8px; height: 8px; background: var(--accent-color); border-radius: 50%; margin-right: 8px; box-shadow: 0 0 10px var(--accent-color); }
+        #chat-area { position: absolute; top: 160px; width: 100%; text-align: center; z-index: 5; padding: 0 20px; box-sizing: border-box; }
+        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 15px; min-height: 1.5em; text-shadow: 0 0 10px rgba(0,0,0,0.5); padding: 0 10%; line-height: 1.6; }
+        #user-speech { font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 15px; min-height: 1.2em; }
+        #text-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: white; text-align: center; width: 220px; outline: none; font-size: 13px; padding: 10px 15px; transition: 0.3s; }
+        #text-input:focus { border-color: var(--accent-color); background: rgba(255,255,255,0.1); }
+        #controls { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 20; }
+        #mic-btn { width: 70px; height: 70px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-bottom: 25px; font-size: 24px; user-select: none; }
+        #save-btn { padding: 10px 25px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: white; cursor: pointer; font-size: 11px; letter-spacing: 2px; }
+        #start-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: pointer; letter-spacing: 5px; font-weight: 300; }
     </style>
 </head>
 <body>
 
-    <div id="login-box">
-        <div class="box-content">
-            <h2 style="font-weight:200; letter-spacing:2px;">YEE SPACE</h2>
-            <input type="password" id="key-input" placeholder="输入 API Key 激活空间">
-            <button class="action-btn" style="background:var(--main); color:black; font-weight:bold;" onclick="saveKey()">开启连线</button>
-        </div>
+    <div id="start-mask">CLICK TO CONNECT SPACE</div>
+
+    <nav>
+        <div style="font-weight: 500;">Yee的日记空间</div>
+        <div id="api-version-tag" style="opacity: 0.3; font-size: 10px;">AUTO-DETECTING API...</div>
+    </nav>
+
+    <div id="status-bar"><div class="dot"></div> <span id="status-text">SYSTEM READY</span></div>
+
+    <div id="chat-area">
+        <div id="ai-reply">正在扫描可用的波段...</div>
+        <div id="user-speech">等待初始化</div>
+        <input type="text" id="text-input" placeholder="打个招呼吧...">
     </div>
 
-    <div id="top-bar">
-        <label class="action-btn">📸 粒子化照片 <input type="file" id="file-in" hidden accept="image/*"></label>
-        <button class="action-btn" onclick="resetKey()">🔄 重置连接</button>
-    </div>
-
-    <div id="chat-container">
-        <div id="ai-msg">等待星际连接...</div>
-        <div id="user-msg"></div>
-        <div id="debug-tag">Ready.</div>
-    </div>
-
-    <div id="bottom-ctrl">
-        <div id="mic-circle">🎙️</div>
-        <p style="font-size:10px; color:#444; margin-top:10px;">点击说话</p>
+    <div id="controls">
+        <div id="mic-btn">🎙️</div>
+        <button id="save-btn">MEMORY SUMMARY</button>
     </div>
 
     <script type="importmap">
@@ -62,154 +50,68 @@
     <script type="module">
         import * as THREE from 'three';
 
-        let API_KEY = localStorage.getItem('yee_final_particle_key');
-        let scene, camera, renderer, particles;
-        let history = [];
+        // --- 核心配置：你的唯一 Key ---
+        const API_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
+        
+        // 我们依次尝试这四个组合，直到有一个不报 404
+        const ENDPOINTS = [
+            { ver: 'v1', mod: 'gemini-1.5-flash' },
+            { ver: 'v1beta', mod: 'gemini-1.5-flash' },
+            { ver: 'v1', mod: 'gemini-pro' },
+            { ver: 'v1beta', mod: 'gemini-pro' }
+        ];
 
-        // --- 1. 初始化与 Key 管理 ---
-        if (API_KEY) {
-            document.getElementById('login-box').style.display = 'none';
-            initSpace();
-        }
+        let activeEndpointIndex = 0;
+        let conversationHistory = [];
 
-        window.saveKey = () => {
-            const val = document.getElementById('key-input').value.trim();
-            if (val) { localStorage.setItem('yee_final_particle_key', val); location.reload(); }
-        };
+        async function runChat(text) {
+            if(!text.trim()) return;
+            
+            conversationHistory.push({ role: "user", parts: [{ text: text }] });
+            document.getElementById('ai-reply').innerText = "信号传输中...";
 
-        window.resetKey = () => { localStorage.removeItem('yee_final_particle_key'); location.reload(); };
-
-        // --- 2. 3D 粒子场景 ---
-        function initSpace() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-            camera.position.z = 15;
-
-            createRandomParticles();
-            animate();
-            document.getElementById('ai-msg').innerText = "星际通道已加固。请开始交谈。";
-        }
-
-        function createRandomParticles() {
-            if (particles) scene.remove(particles);
-            const geo = new THREE.BufferGeometry();
-            const pos = [], cols = [];
-            for (let i = 0; i < 2000; i++) {
-                pos.push((Math.random() - 0.5) * 35, (Math.random() - 0.5) * 35, (Math.random() - 0.5) * 10);
-                cols.push(0, 1, 0.66);
-            }
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-            const mat = new THREE.PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: 0.6 });
-            particles = new THREE.Points(geo, mat);
-            scene.add(particles);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (particles) {
-                particles.rotation.y += 0.001;
-                particles.rotation.x += 0.0005;
-            }
-            renderer.render(scene, camera);
-        }
-
-        // --- 3. 照片转化为粒子 ---
-        document.getElementById('file-in').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const img = new Image();
-                img.onload = () => {
-                    const cvs = document.createElement('canvas');
-                    const ctx = cvs.getContext('2d');
-                    const size = 100; 
-                    cvs.width = size; cvs.height = size;
-                    ctx.drawImage(img, 0, 0, size, size);
-                    const data = ctx.getImageData(0,0,size,size).data;
-                    const p = [], c = [];
-                    for(let y=0; y<size; y++){
-                        for(let x=0; x<size; x++){
-                            const i = (y * size + x) * 4;
-                            if(data[i+3] > 128) {
-                                p.push((x - size/2) * 0.15, (size/2 - y) * 0.15, 0);
-                                c.push(data[i]/255, data[i+1]/255, data[i+2]/255);
-                            }
-                        }
-                    }
-                    if (particles) scene.remove(particles);
-                    const geo = new THREE.BufferGeometry();
-                    geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
-                    geo.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
-                    particles = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, vertexColors: true }));
-                    scene.add(particles);
-                    document.getElementById('ai-msg').innerText = "记忆已转化为粒子。";
-                };
-                img.src = ev.target.result;
-            };
-            reader.readAsDataURL(file);
-        };
-
-        // --- 4. 稳定版对话逻辑 (v1 路径 + 自动匹配) ---
-        async function talkToAI(text) {
-            document.getElementById('user-msg').innerText = text;
-            document.getElementById('ai-msg').innerText = "🌌 正在同步信号...";
-            history.push({ role: "user", parts: [{ text: text }] });
-
-            // 尝试列表：v1 路径是目前最稳的
-            const models = ["gemini-1.5-flash-latest", "gemini-1.5-flash"];
-            let success = false;
-
-            for (let modelName of models) {
-                if (success) break;
-                document.getElementById('debug-tag').innerText = `尝试波段: ${modelName}`;
-                
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${API_KEY}`;
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: history })
-                    });
-
-                    const data = await res.json();
-                    if (res.ok) {
-                        const reply = data.candidates[0].content.parts[0].text;
-                        document.getElementById('ai-msg').innerText = reply;
-                        document.getElementById('debug-tag').innerText = `成功使用: ${modelName}`;
-                        history.push({ role: "model", parts: [{ text: reply }] });
-                        success = true;
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-
+            // 尝试当前已知的可用波段
+            const success = await attemptRequest(text, activeEndpointIndex);
+            
+            // 如果失败且还有备选波段，启动全量搜索
             if (!success) {
-                document.getElementById('ai-msg').innerText = "⚠️ 所有波段均 404，请确认 API Key 权限。";
+                document.getElementById('ai-reply').innerText = "波段失联，正在重新对准频率...";
+                for (let i = 0; i < ENDPOINTS.length; i++) {
+                    console.log(`正在尝试组合: ${ENDPOINTS[i].ver} / ${ENDPOINTS[i].mod}`);
+                    const res = await attemptRequest(text, i);
+                    if (res) {
+                        activeEndpointIndex = i;
+                        document.getElementById('api-version-tag').innerText = `CONNECTED: ${ENDPOINTS[i].ver}/${ENDPOINTS[i].mod}`;
+                        return;
+                    }
+                }
+                document.getElementById('ai-reply').innerHTML = "<span style='color:red;'>所有波段均404。请检查 Google AI Studio 中该 Key 的权限是否已启用。</span>";
             }
         }
 
-        // --- 5. 语音识别 ---
-        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (Speech) {
-            const rec = new Speech();
-            rec.lang = 'zh-CN';
-            const btn = document.getElementById('mic-circle');
-            btn.onclick = () => { try { rec.start(); btn.classList.add('active'); } catch(e){} };
-            rec.onresult = (e) => talkToAI(e.results[0][0].transcript);
-            rec.onend = () => btn.classList.remove('active');
+        async function attemptRequest(text, index) {
+            const config = ENDPOINTS[index];
+            const url = `https://generativelanguage.googleapis.com/${config.ver}/models/${config.mod}:generateContent?key=${API_KEY}`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: conversationHistory })
+                });
+
+                const data = await response.json();
+                if (response.ok && data.candidates) {
+                    const reply = data.candidates[0].content.parts[0].text;
+                    document.getElementById('ai-reply').innerText = reply;
+                    conversationHistory.push({ role: "model", parts: [{ text: reply }] });
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                return false;
+            }
         }
 
-        window.onresize = () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
-    </script>
-</body>
-</html>
+        // --- 3D 视觉部分 (简洁版以防资源加载问题) ---
+        const scene = new THREE.Scene();
