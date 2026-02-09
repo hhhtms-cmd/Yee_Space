@@ -1,30 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yee的日记空间 - 最终兼容版</title>
+    <style>
+        :root { --accent-color: #00ffaa; }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #chat-box { width: 80%; max-width: 500px; text-align: center; }
+        #ai-reply { font-size: 1.2rem; margin-bottom: 20px; line-height: 1.5; min-height: 3em; }
+        #text-input { background: #111; border: 1px solid #333; color: white; padding: 10px 20px; border-radius: 20px; width: 100%; outline: none; }
+        #text-input:focus { border-color: var(--accent-color); }
+        #status { font-size: 10px; color: #666; margin-top: 10px; }
+    </style>
+</head>
 <body>
-    <div id="result">正在诊断你的 API Key 权限...</div>
-    <script>
+
+    <div id="chat-box">
+        <div id="ai-reply">你好 Yee，正在尝试连接 1.5 Flash 频道...</div>
+        <input type="text" id="text-input" placeholder="输入并回车...">
+        <div id="status">API STATUS: IDLE</div>
+    </div>
+
+    <script type="module">
+        // 你的 Key
         const API_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
-        async function checkModels() {
+        
+        // 免费版最稳的路径：v1beta + gemini-1.5-flash
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+        let history = [];
+
+        async function chat(text) {
+            const replyEl = document.getElementById('ai-reply');
+            const statusEl = document.getElementById('status');
+            
+            replyEl.innerText = "正在呼叫 Gemini...";
+            statusEl.innerText = "API STATUS: CONNECTING...";
+
+            history.push({ role: "user", parts: [{ text: text }] });
+
             try {
-                // 尝试拉取你这个 Key 真正能看到的所有模型
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
-                const data = await res.json();
-                
-                if (data.models) {
-                    let html = "<h3>你的 Key 可以使用的模型列表：</h3><ul>";
-                    data.models.forEach(m => {
-                        html += `<li><b>${m.name}</b> (支持操作: ${m.supportedGenerationMethods.join(', ')})</li>`;
-                    });
-                    html += "</ul><p>请从中挑选一个名称填入代码中。</p>";
-                    document.getElementById('result').innerHTML = html;
-                } else {
-                    document.getElementById('result').innerHTML = "错误详情：" + JSON.stringify(data.error);
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: history })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    // 如果报 404，这里会打印出 Google 给的详细解释
+                    console.error("DEBUG ERROR:", data);
+                    throw new Error(data.error ? data.error.message : "未知错误");
                 }
-            } catch (e) {
-                document.getElementById('result').innerText = "请求失败，请检查网络或 Key 格式。";
+
+                const result = data.candidates[0].content.parts[0].text;
+                replyEl.innerText = result;
+                history.push({ role: "model", parts: [{ text: result }] });
+                statusEl.innerText = "API STATUS: SUCCESS (v1beta/flash)";
+
+            } catch (err) {
+                statusEl.innerText = "API STATUS: ERROR";
+                replyEl.innerHTML = `<span style="color:red">错误: ${err.message}</span><br>
+                <small style="color:#666">如果仍是 404，请检查 Cloud Console 是否启用了 Generative Language API</small>`;
             }
         }
-        checkModels();
+
+        document.getElementById('text-input').onkeypress = (e) => {
+            if(e.key === 'Enter') {
+                chat(e.target.value);
+                e.target.value = "";
+            }
+        };
     </script>
 </body>
 </html>
