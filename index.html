@@ -37,7 +37,7 @@
     <div id="status-bar"><div class="dot"></div> <span id="status-text">Gemini Active</span></div>
 
     <div id="chat-area">
-        <div id="ai-reply">你好 Yee，现在连接已修正。试试看？</div>
+        <div id="ai-reply">你好 Yee，接口已切换至 v1 正式版。</div>
         <div id="user-speech">等待输入...</div>
         <input type="text" id="text-input" placeholder="输入并回车开始对话...">
     </div>
@@ -62,8 +62,8 @@
 
         // --- 核心配置 ---
         const API_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw"; 
-        // 修正后的地址：使用 v1 版本，模型名称前加上 models/
-        const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+        // 关键点：使用 v1 正式版路径
+        const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
         let conversationHistory = [];
 
@@ -72,7 +72,7 @@
             
             conversationHistory.push({ role: "user", parts: [{ text: text }] });
             const replyBox = document.getElementById('ai-reply');
-            replyBox.innerText = "思考中...";
+            replyBox.innerText = "正在通过 v1 接口连接...";
 
             try {
                 const response = await fetch(API_URL, {
@@ -92,16 +92,17 @@
                 conversationHistory.push({ role: "model", parts: [{ text: reply }] });
 
             } catch (err) {
-                // 如果 gemini-pro 也不行，尝试自动切换到 1.5-flash 的 v1 路径
-                replyBox.innerHTML = `<span style="color:#ff5555;">[调试中...] 正在尝试备用路径...</span>`;
-                retryWithFlash(text);
+                console.error(err);
+                // 如果还报错，最后一次尝试切换到 gemini-pro 模型
+                replyBox.innerHTML = `<span style="color:#ff5555;">[尝试备用模型...] ${err.message}</span>`;
+                retryWithPro(text);
             }
         }
 
-        async function retryWithFlash(text) {
-            const FLASH_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+        async function retryWithPro(text) {
+            const PRO_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
             try {
-                const response = await fetch(FLASH_URL, {
+                const response = await fetch(PRO_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: conversationHistory })
@@ -110,11 +111,11 @@
                 const reply = data.candidates[0].content.parts[0].text;
                 document.getElementById('ai-reply').innerText = reply;
             } catch (e) {
-                document.getElementById('ai-reply').innerText = "错误仍存：" + e.message;
+                document.getElementById('ai-reply').innerText = "全部尝试失败，请检查 Google AI Studio 是否开启了此 Key 的权限。";
             }
         }
 
-        // --- 以下是 3D 和基础逻辑 (保持不变) ---
+        // --- 3D 视觉部分 ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
