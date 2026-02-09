@@ -3,21 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee Space - 修复版</title>
+    <title>Yee Space - 已修复</title>
     <style>
         body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         #display { width: 80%; text-align: center; font-size: 20px; margin-bottom: 30px; line-height: 1.5; min-height: 60px; }
         #error-log { color: #ff4444; font-size: 12px; margin-top: 20px; background: rgba(255,0,0,0.1); padding: 10px; border-radius: 5px; max-width: 90%; word-break: break-all; max-height: 200px; overflow-y: auto; }
         .btn { background: none; border: 1px solid #00ffaa; color: #00ffaa; padding: 10px 20px; border-radius: 20px; cursor: pointer; margin: 5px; font-size: 12px; }
         .btn:hover { background: rgba(0,255,170,0.1); }
-        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 20px; }
+        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 20px; transition: all 0.3s; }
+        #mic-btn:hover { transform: scale(1.05); }
         #mic-btn.active { background: rgba(0,255,170,0.2); box-shadow: 0 0 20px #00ffaa; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         #key-panel { position: fixed; top: 10px; right: 10px; display: flex; gap: 5px; }
         #test-panel { position: fixed; bottom: 10px; left: 10px; }
+        .model-selector { position: fixed; top: 10px; left: 10px; }
+        select { background: #000; border: 1px solid #00ffaa; color: #00ffaa; padding: 8px; border-radius: 5px; font-size: 11px; }
     </style>
 </head>
 <body>
+
+    <div class="model-selector">
+        <select id="model-select" onchange="saveModel()">
+            <option value="gemini-pro">Gemini Pro</option>
+            <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash</option>
+            <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+        </select>
+    </div>
 
     <div id="key-panel">
         <button class="btn" onclick="testConnection()">测试连接</button>
@@ -35,8 +46,18 @@
     <div id="error-log"></div>
 
     <script>
-        // --- 1. Key 管理 ---
+        // --- 1. Key 和模型管理 ---
         let API_KEY = localStorage.getItem('yee_debug_key');
+        let SELECTED_MODEL = localStorage.getItem('yee_model') || 'gemini-pro';
+
+        // 恢复模型选择
+        document.getElementById('model-select').value = SELECTED_MODEL;
+
+        function saveModel() {
+            SELECTED_MODEL = document.getElementById('model-select').value;
+            localStorage.setItem('yee_model', SELECTED_MODEL);
+            showLog(`✅ 已切换到模型: ${SELECTED_MODEL}`, false);
+        }
 
         if (!API_KEY) {
             API_KEY = prompt("请输入您的 Google API Key:\n(获取地址: https://aistudio.google.com/app/apikey)");
@@ -61,7 +82,7 @@
             log.innerText = message;
         }
 
-        // --- 2. 核心请求函数 (✅ 已修复) ---
+        // --- 2. 核心请求函数 (✅ 完全修复) ---
         async function askGemini(text) {
             const display = document.getElementById('display');
             
@@ -75,10 +96,18 @@
             }
 
             try {
-                // ✅ 修复: 使用正确的 API 端点
-                const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+                // ✅ 修复: 根据模型选择正确的 API 版本
+                let url;
+                if (SELECTED_MODEL === 'gemini-pro') {
+                    // gemini-pro 使用 v1 版本
+                    url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+                } else {
+                    // 1.5 系列使用 v1beta 版本
+                    url = `https://generativelanguage.googleapis.com/v1beta/models/${SELECTED_MODEL}:generateContent?key=${API_KEY}`;
+                }
                 
                 console.log("🔗 请求 URL:", url.replace(API_KEY, 'YOUR_KEY'));
+                console.log("🤖 使用模型:", SELECTED_MODEL);
                 console.log("📝 发送内容:", text);
 
                 const response = await fetch(url, {
@@ -106,11 +135,11 @@
                         if (data.error.code === 400) {
                             errorMsg += "\n\n💡 可能原因:\n- API Key 格式错误\n- 请求参数有误";
                         } else if (data.error.code === 403 || data.error.status === "PERMISSION_DENIED") {
-                            errorMsg += "\n\n💡 可能原因:\n- API Key 无效或已过期\n- 未启用 Gemini API\n- Key 权限不足";
+                            errorMsg += "\n\n💡 可能原因:\n- API Key 无效或已过期\n- 未启用 Gemini API\n请访问: https://aistudio.google.com";
                         } else if (data.error.code === 404) {
-                            errorMsg += "\n\n💡 模型未找到，请检查 API 版本";
+                            errorMsg += "\n\n💡 模型不可用\n尝试切换左上角的模型选择器";
                         } else if (data.error.code === 429) {
-                            errorMsg += "\n\n💡 已达到请求限制，请稍后再试";
+                            errorMsg += "\n\n💡 请求过于频繁，请稍后再试";
                         }
                     }
                     
@@ -121,19 +150,23 @@
                 if (data.candidates && data.candidates.length > 0) {
                     const candidate = data.candidates[0];
                     
-                    if (candidate.content && candidate.content.parts) {
-                        display.innerText = candidate.content.parts[0].text;
-                        showLog("✅ 请求成功 | " + new Date().toLocaleTimeString(), false);
+                    if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+                        const responseText = candidate.content.parts[0].text;
+                        display.innerText = responseText;
+                        showLog(`✅ 成功 | 模型: ${SELECTED_MODEL} | ${new Date().toLocaleTimeString()}`, false);
                     } else {
                         throw new Error("响应格式异常: 无法提取文本内容");
                     }
+                } else if (data.candidates && data.candidates[0].finishReason === 'SAFETY') {
+                    display.innerText = "⚠️ 内容被安全过滤器拦截";
+                    showLog("请尝试换个说法或问题", false);
                 } else {
-                    throw new Error("⚠️ 收到空响应\n可能被安全过滤器拦截");
+                    throw new Error("⚠️ 收到空响应");
                 }
 
             } catch (err) {
                 display.innerText = "❌ 发送失败";
-                showLog("🔍 错误信息:\n" + err.message);
+                showLog("🔍 错误详情:\n" + err.message);
                 console.error("❌ 完整错误:", err);
             }
         }
@@ -195,7 +228,9 @@
                 if (event.error === 'no-speech') {
                     errorText = "未检测到语音，请重试";
                 } else if (event.error === 'not-allowed') {
-                    errorText = "麦克风权限被拒绝\n请在浏览器设置中允许麦克风访问";
+                    errorText = "⚠️ 麦克风权限被拒绝\n请在浏览器设置中允许麦克风访问";
+                } else if (event.error === 'network') {
+                    errorText = "网络错误，请检查连接";
                 }
                 
                 document.getElementById('display').innerText = errorText;
@@ -206,7 +241,8 @@
         window.onload = () => {
             if (API_KEY) {
                 console.log("✅ 系统已就绪");
-                console.log("💡 提示: 点击'测试连接'按钮验证 API");
+                console.log("🤖 当前模型:", SELECTED_MODEL);
+                console.log("💡 提示: 点击'测试连接'验证 API");
             }
         };
     </script>
