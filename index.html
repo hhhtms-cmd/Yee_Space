@@ -1,36 +1,112 @@
-async function runChat(text) {
-    const replyBox = document.getElementById('ai-reply');
-    replyBox.innerText = "信号探测中...";
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yee的日记空间 - 最终修复版</title>
+    <style>
+        :root { --accent-color: #00ffaa; }
+        body { margin: 0; background: #000; overflow: hidden; color: white; font-family: "PingFang SC", sans-serif; }
+        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 10; opacity: 0.8; font-size: 12px; letter-spacing: 2px; }
+        #chat-area { position: absolute; top: 180px; width: 100%; text-align: center; z-index: 5; padding: 0 20px; box-sizing: border-box; }
+        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 20px; min-height: 1.5em; line-height: 1.6; padding: 0 10%; }
+        #text-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 25px; color: white; text-align: center; width: 280px; outline: none; font-size: 14px; padding: 12px 20px; transition: 0.3s; }
+        #text-input:focus { border-color: var(--accent-color); background: rgba(255,255,255,0.1); }
+        #debug-console { position: fixed; bottom: 10px; left: 10px; font-size: 10px; color: #555; font-family: monospace; text-align: left; pointer-events: none; }
+    </style>
+</head>
+<body>
 
-    // 1. 强行清理：确保 Key 字符串绝对纯净，没有任何不可见字符
-    const rawKey = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
-    const cleanKey = rawKey.replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    <nav>
+        <div style="font-weight: 500;">YEE DIARY SPACE</div>
+        <div id="ver-tag" style="opacity: 0.3;">V2.0.FINAL</div>
+    </nav>
 
-    // 2. 构造 URL
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
+    <div id="chat-area">
+        <div id="ai-reply">你好 Yee，系统已重置。请输入任意内容测试。</div>
+        <input type="text" id="text-input" placeholder="输入并回车..." autofocus>
+    </div>
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-                // 注意：不要在这里加 'Authorization' 头，Gemini API 只需要 URL 参数里的 key
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: text }] }]
-            })
-        });
+    <div id="debug-console" id="debug-log">READY</div>
 
-        const data = await response.json();
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
 
-        if (response.ok) {
-            replyBox.innerText = data.candidates[0].content.parts[0].text;
-        } else {
-            // 抓取详细错误：如果报错，请看弹窗里的 'reason' 字段
-            console.error("DEBUG:", data);
-            alert(`API拒绝请求！\n状态: ${data.error.status}\n理由: ${data.error.message}`);
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- 核心逻辑 ---
+        // 关键：请再次核对你的 Key 是否为 AIza... 开头，不要带空格
+        const API_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw"; 
+
+        async function runChat(text) {
+            const replyBox = document.getElementById('ai-reply');
+            const logBox = document.getElementById('debug-console');
+            
+            replyBox.innerText = "信号同步中...";
+            
+            // 使用 URLSearchParams 确保 URL 编码 100% 符合规范
+            const params = new URLSearchParams({ key: API_KEY.trim() });
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?${params.toString()}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const reply = data.candidates[0].content.parts[0].text;
+                    replyBox.innerText = reply;
+                    logBox.innerText = "LAST STATUS: SUCCESS";
+                } else {
+                    console.error("FULL ERROR:", data);
+                    replyBox.innerHTML = `<span style="color:#ff5555;">[错误] ${data.error.message}</span>`;
+                    logBox.innerText = `LAST ERROR: ${data.error.status}`;
+                    
+                    // 如果依然报 Key not found，弹出警告框显示正在使用的 Key 前四位
+                    if(data.error.message.includes("Key not found")) {
+                        alert("关键错误：Google 依然没看到你的 Key。\n当前尝试使用的 Key 以 " + API_KEY.substring(0,4) + " 开头。\n如果你刚改了代码，请强制刷新网页！");
+                    }
+                }
+            } catch (err) {
+                replyBox.innerText = "网络连接失败，请检查防火墙或代理。";
+            }
         }
-    } catch (err) {
-        alert("网络层错误（检查是否开了奇怪的代理）: " + err.message);
-    }
-}
+
+        // --- 极简背景 ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        camera.position.z = 5;
+
+        const geometry = new THREE.TorusGeometry(2, 0.5, 16, 100);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ffaa, wireframe: true, transparent: true, opacity: 0.1 });
+        const ring = new THREE.Mesh(geometry, material);
+        scene.add(ring);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ring.rotation.y += 0.005;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 交互
+        document.getElementById('text-input').onkeypress = (e) => {
+            if(e.key === 'Enter') {
+                runChat(e.target.value);
+                e.target.value = "";
+            }
+        };
+    </script>
+</body>
+</html>
