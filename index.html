@@ -3,110 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee Space Debug</title>
+    <title>Yee Space Debug - 增强版</title>
     <style>
         body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         #display { width: 80%; text-align: center; font-size: 20px; margin-bottom: 30px; line-height: 1.5; min-height: 60px; }
-        #error-log { color: #ff4444; font-size: 12px; margin-top: 20px; background: rgba(255,0,0,0.1); padding: 10px; border-radius: 5px; display: none; max-width: 90%; word-break: break-all; }
-        .btn { background: none; border: 1px solid #00ffaa; color: #00ffaa; padding: 10px 20px; border-radius: 20px; cursor: pointer; margin: 5px; }
+        #error-log { color: #ff4444; font-size: 12px; margin-top: 20px; background: rgba(255,0,0,0.1); padding: 10px; border-radius: 5px; max-width: 90%; word-break: break-all; max-height: 200px; overflow-y: auto; }
+        .btn { background: none; border: 1px solid #00ffaa; color: #00ffaa; padding: 10px 20px; border-radius: 20px; cursor: pointer; margin: 5px; font-size: 12px; }
+        .btn:hover { background: rgba(0,255,170,0.1); }
         #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 20px; }
-        #mic-btn.active { background: rgba(0,255,170,0.2); box-shadow: 0 0 20px #00ffaa; }
-        #key-panel { position: fixed; top: 10px; right: 10px; }
+        #mic-btn.active { background: rgba(0,255,170,0.2); box-shadow: 0 0 20px #00ffaa; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        #key-panel { position: fixed; top: 10px; right: 10px; display: flex; gap: 5px; }
+        #test-panel { position: fixed; bottom: 10px; left: 10px; }
     </style>
 </head>
 <body>
 
     <div id="key-panel">
-        <button class="btn" style="font-size:10px;" onclick="resetKey()">重置 Key</button>
+        <button class="btn" onclick="testConnection()">测试连接</button>
+        <button class="btn" onclick="resetKey()">重置 Key</button>
+    </div>
+
+    <div id="test-panel">
+        <button class="btn" onclick="testWithText()">文字测试</button>
     </div>
 
     <div id="display">正在初始化...</div>
     
     <div id="mic-btn">🎙️</div>
     
-    <div id="error-log" id="log"></div>
+    <div id="error-log"></div>
 
     <script>
         // --- 1. Key 管理 ---
         let API_KEY = localStorage.getItem('yee_debug_key');
 
         if (!API_KEY) {
-            API_KEY = prompt("请输入您的 Google API Key:");
+            API_KEY = prompt("请输入您的 Google API Key:\n(获取地址: https://aistudio.google.com/app/apikey)");
             if (API_KEY) {
                 localStorage.setItem('yee_debug_key', API_KEY);
                 location.reload();
+            } else {
+                document.getElementById('display').innerText = "❌ 未提供 API Key";
             }
         }
 
         function resetKey() {
             localStorage.removeItem('yee_debug_key');
+            alert("Key 已清除，页面将刷新");
             location.reload();
         }
 
-        document.getElementById('display').innerText = API_KEY ? "已连接，请点击麦克风说话" : "请提供有效 Key";
+        function showLog(message, isError = true) {
+            const log = document.getElementById('error-log');
+            log.style.display = "block";
+            log.style.color = isError ? "#ff4444" : "#00ffaa";
+            log.innerText = message;
+        }
 
-        // --- 2. 核心请求函数 ---
+        // --- 2. 核心请求函数(改进版) ---
         async function askGemini(text) {
             const display = document.getElementById('display');
-            const log = document.getElementById('error-log');
             
-            display.innerText = "思考中...";
-            log.style.display = "none";
+            display.innerText = "💭 思考中...";
+            document.getElementById('error-log').style.display = "none";
+
+            if (!API_KEY || API_KEY.trim() === '') {
+                display.innerText = "⚠️ API Key 未设置";
+                showLog("请点击右上角'重置 Key'按钮重新输入");
+                return;
+            }
 
             try {
-                // 强制使用 https 和 v1 稳定版接口
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+                
+                console.log("🔗 请求 URL:", url.replace(API_KEY, 'YOUR_KEY'));
+                console.log("📝 发送内容:", text);
+
+                const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify({
-                        contents: [{ role: "user", parts: [{ text: text }] }]
+                        contents: [{
+                            parts: [{ text: text }]
+                        }]
                     })
                 });
 
+                console.log("📡 响应状态:", response.status);
+
                 const data = await response.json();
+                console.log("📦 响应数据:", data);
 
                 if (!response.ok) {
-                    // 如果服务器有返回错误，直接抓取
-                    throw new Error(JSON.stringify(data));
+                    // 解析具体错误
+                    let errorMsg = "未知错误";
+                    if (data.error) {
+                        errorMsg = `${data.error.message || ''}\n状态码: ${data.error.code || response.status}`;
+                        
+                        if (data.error.code === 400) {
+                            errorMsg += "\n\n💡 可能原因:\n- API Key 格式错误\n- 请求参数有误";
+                        } else if (data.error.code === 403 || data.error.status === "PERMISSION_DENIED") {
+                            errorMsg += "\n\n💡 可能原因:\n- API Key 无效或已过期\n- 未启用 Gemini API\n- Key 权限不足";
+                        } else if (data.error.code === 429) {
+                            errorMsg += "\n\n💡 已达到请求限制，请稍后再试";
+                        }
+                    }
+                    
+                    throw new Error(errorMsg);
                 }
 
-                if (data.candidates && data.candidates[0].content) {
-                    display.innerText = data.candidates[0].content.parts[0].text;
+                // 解析响应
+                if (data.candidates && data.candidates.length > 0) {
+                    const candidate = data.candidates[0];
+                    
+                    if (candidate.content && candidate.content.parts) {
+                        display.innerText = candidate.content.parts[0].text;
+                        showLog("✅ 请求成功 | 用时: " + new Date().toLocaleTimeString(), false);
+                    } else {
+                        throw new Error("响应格式异常: 无法提取文本内容");
+                    }
                 } else {
-                    throw new Error("收到空响应，可能是安全过滤导致");
+                    throw new Error("⚠️ 收到空响应\n可能被安全过滤器拦截");
                 }
 
             } catch (err) {
-                display.innerText = "⚠️ 发送失败";
-                log.style.display = "block";
-                log.innerText = "详细诊断信息: " + err.message;
-                console.error("DEBUG ERROR:", err);
+                display.innerText = "❌ 发送失败";
+                showLog("🔍 详细错误信息:\n" + err.message + "\n\n请查看浏览器控制台(F12)获取更多信息");
+                console.error("❌ 完整错误:", err);
             }
         }
 
-        // --- 3. 语音识别 ---
+        // --- 3. 测试函数 ---
+        function testWithText() {
+            const testMsg = prompt("输入测试文字:", "你好");
+            if (testMsg) askGemini(testMsg);
+        }
+
+        async function testConnection() {
+            showLog("🔄 正在测试 API 连接...", false);
+            await askGemini("你好，请回复'测试成功'");
+        }
+
+        // --- 4. 语音识别 ---
         const micBtn = document.getElementById('mic-btn');
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
-            document.getElementById('display').innerText = "当前浏览器不支持语音识别，请换用 Chrome";
+            document.getElementById('display').innerText = "❌ 当前浏览器不支持语音识别\n请使用 Chrome 或 Edge 浏览器";
         } else {
             const recognition = new SpeechRecognition();
             recognition.lang = 'zh-CN';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            document.getElementById('display').innerText = API_KEY ? "✅ 已就绪，点击麦克风说话" : "请提供 API Key";
 
             micBtn.onclick = () => {
                 try {
                     recognition.start();
                     micBtn.classList.add('active');
-                    document.getElementById('display').innerText = "正在倾听...";
+                    document.getElementById('display').innerText = "🎤 正在倾听...";
                 } catch (e) {
-                    console.error(e);
+                    if (e.message.includes('already started')) {
+                        console.log("语音识别已在运行");
+                    } else {
+                        showLog("语音识别启动失败: " + e.message);
+                    }
                 }
             };
 
             recognition.onresult = (event) => {
                 const text = event.results[0][0].transcript;
-                askGemini(text);
+                console.log("🎤 识别结果:", text);
+                document.getElementById('display').innerText = `你说: "${text}"`;
+                setTimeout(() => askGemini(text), 500);
             };
 
             recognition.onend = () => {
@@ -114,9 +187,26 @@
             };
 
             recognition.onerror = (event) => {
-                document.getElementById('display').innerText = "语音识别错误: " + event.error;
+                micBtn.classList.remove('active');
+                let errorText = "语音识别错误: " + event.error;
+                
+                if (event.error === 'no-speech') {
+                    errorText = "未检测到语音，请重试";
+                } else if (event.error === 'not-allowed') {
+                    errorText = "麦克风权限被拒绝\n请在浏览器设置中允许麦克风访问";
+                }
+                
+                document.getElementById('display').innerText = errorText;
             };
         }
+
+        // 页面加载完成提示
+        window.onload = () => {
+            if (API_KEY) {
+                console.log("✅ 系统已就绪");
+                console.log("💡 提示: 点击右下角'文字测试'按钮快速测试 API");
+            }
+        };
     </script>
 </body>
 </html>
