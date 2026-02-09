@@ -2,13 +2,20 @@ async function runChat(text) {
     const replyBox = document.getElementById('ai-reply');
     replyBox.innerText = "信号探测中...";
 
-    // 【关键】直接把完整的、带 Key 的 URL 写死，不使用变量，不使用拼接
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
+    // 1. 强行清理：确保 Key 字符串绝对纯净，没有任何不可见字符
+    const rawKey = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
+    const cleanKey = rawKey.replace(/[^a-zA-Z0-9_-]/g, '').trim();
+
+    // 2. 构造 URL
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
 
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json'
+                // 注意：不要在这里加 'Authorization' 头，Gemini API 只需要 URL 参数里的 key
+            },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: text }] }]
             })
@@ -19,11 +26,11 @@ async function runChat(text) {
         if (response.ok) {
             replyBox.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            // 弹出最原始的错误，不加任何修饰
-            console.error("DEBUG RAW ERROR:", data);
-            alert("错误详情: " + JSON.stringify(data.error));
+            // 抓取详细错误：如果报错，请看弹窗里的 'reason' 字段
+            console.error("DEBUG:", data);
+            alert(`API拒绝请求！\n状态: ${data.error.status}\n理由: ${data.error.message}`);
         }
     } catch (err) {
-        alert("网络层错误: " + err.message);
+        alert("网络层错误（检查是否开了奇怪的代理）: " + err.message);
     }
 }
