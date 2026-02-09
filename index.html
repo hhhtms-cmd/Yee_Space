@@ -6,61 +6,72 @@
     <title>Yee's Memory Space</title>
     <style>
         :root { --accent-color: #00ffaa; --bg-color: #050505; }
-        body { margin: 0; background: var(--bg-color); overflow: hidden; color: white; font-family: "PingFang SC", sans-serif; }
+        body { margin: 0; background: var(--bg-color); overflow: hidden; color: white; font-family: "PingFang SC", "Helvetica Neue", sans-serif; }
         
-        /* Key 输入覆盖层 */
-        #key-auth { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.5s; }
-        .auth-box { text-align: center; max-width: 400px; padding: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; background: rgba(255,255,255,0.02); }
-        #api-key-input { background: rgba(255,255,255,0.1); border: 1px solid #333; color: #00ffaa; padding: 12px; width: 280px; border-radius: 8px; text-align: center; margin: 20px 0; outline: none; font-family: monospace; }
-        .enter-btn { background: var(--accent-color); color: black; border: none; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        /* 第一次进入时的 Key 输入框 */
+        #auth-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .auth-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 40px; border-radius: 30px; text-align: center; backdrop-filter: blur(10px); }
+        #key-input { background: rgba(255,255,255,0.1); border: 1px solid #333; color: var(--accent-color); padding: 12px; width: 300px; border-radius: 10px; text-align: center; margin: 20px 0; outline: none; }
+        .start-btn { background: var(--accent-color); color: black; border: none; padding: 10px 40px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-        /* 上传与控制 UI */
-        #upload-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
-        .upload-label { background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.3); padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 11px; }
+        /* 顶部上传区域 */
+        #top-ui { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; z-index: 100; }
+        .upload-label { background: rgba(255,255,255,0.08); border: 1px dashed rgba(255,255,255,0.3); padding: 8px 25px; border-radius: 20px; cursor: pointer; font-size: 12px; letter-spacing: 1px; transition: 0.3s; }
+        .upload-label:hover { border-color: var(--accent-color); background: rgba(0,255,170,0.1); }
         #file-input { display: none; }
 
-        #chat-area { position: absolute; top: 180px; width: 100%; text-align: center; z-index: 5; }
-        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 10px; padding: 0 40px; }
-        
-        #controls { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 20; }
-        #mic-btn { width: 60px; height: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
-        #mic-btn.active { border-color: #ff4444; box-shadow: 0 0 20px #ff4444; }
+        /* 聊天显示区域 */
+        #display-area { position: absolute; top: 180px; width: 100%; text-align: center; padding: 0 20px; box-sizing: border-box; }
+        #ai-text { font-size: 20px; font-weight: 300; line-height: 1.6; margin-bottom: 20px; min-height: 1.5em; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        #user-text { font-size: 14px; color: rgba(255,255,255,0.4); font-style: italic; }
 
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(15px); }
-        .card { width: 280px; padding: 40px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; text-align: center; }
+        /* 底部控制栏 */
+        #footer { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 100; }
+        #mic-btn { width: 70px; height: 70px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 28px; transition: 0.3s; margin-bottom: 20px; }
+        #mic-btn.active { border-color: #ff4444; box-shadow: 0 0 30px #ff4444; background: rgba(255,0,0,0.1); }
+        #save-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 20px; border-radius: 15px; font-size: 11px; cursor: pointer; opacity: 0.6; }
+        #save-btn:hover { opacity: 1; border-color: white; }
+
+        /* 总结卡片 */
+        #card-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(20px); }
+        .card-body { width: 300px; padding: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; background: rgba(255,255,255,0.02); text-align: center; }
+        
+        /* 隐藏的重置按钮（左下角，防备万一需要换Key） */
+        #reset-link { position: fixed; bottom: 10px; left: 10px; font-size: 9px; opacity: 0.1; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="key-auth">
-        <div class="auth-box">
-            <h2 style="font-weight: 200; letter-spacing: 5px;">YEE'S SPACE</h2>
-            <p style="font-size: 12px; opacity: 0.5;">请输入您的 Google Gemini API Key 以激活空间</p>
-            <input type="password" id="api-key-input" placeholder="AIzaSy...">
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2 style="font-weight: 200; letter-spacing: 5px;">YEE'S MEMORY</h2>
+            <p style="font-size: 12px; opacity: 0.6;">请输入您的 Google API Key</p>
+            <input type="password" id="key-input" placeholder="AIzaSy...">
             <br>
-            <button class="enter-btn" onclick="saveAndStart()">进入空间</button>
-            <p style="font-size: 10px; opacity: 0.3; margin-top: 20px;">Key 仅保存在您的浏览器本地</p>
+            <button class="start-btn" onclick="handleAuth()">开启空间</button>
         </div>
     </div>
 
-    <div id="upload-container">
-        <label for="file-input" class="upload-label">📸 上传照片生成记忆粒子</label>
+    <div id="reset-link" onclick="localStorage.removeItem('yee_key'); location.reload();">RESET KEY</div>
+
+    <div id="top-ui">
+        <label for="file-input" class="upload-label">📸 上传照片转化记忆粒子</label>
         <input type="file" id="file-input" accept="image/*">
     </div>
 
-    <div id="chat-area">
-        <div id="ai-reply">你好 Yee，上传照片后，对我说话或点击麦克风。</div>
-        <div id="user-speech" style="color: rgba(255,255,255,0.4); font-size: 14px; margin-top: 10px;"></div>
+    <div id="display-area">
+        <div id="ai-text">欢迎回来。</div>
+        <div id="user-text"></div>
     </div>
 
-    <div id="controls">
+    <div id="footer">
         <div id="mic-btn">🎙️</div>
-        <button id="save-btn" style="margin-top:20px; background:none; border:1px solid #444; color:white; padding:8px 15px; border-radius:15px; font-size:10px; cursor:pointer;">生成感悟卡片</button>
+        <button id="save-btn">生成记忆卡片</button>
     </div>
 
-    <div id="overlay" onclick="this.style.display='none'">
-        <div class="card">
-            <div id="summary-text" style="line-height:1.8; font-size: 15px;"></div>
+    <div id="card-overlay" onclick="this.style.display='none'">
+        <div class="card-body">
+            <p id="card-text" style="line-height: 1.8;"></p>
         </div>
     </div>
 
@@ -71,37 +82,35 @@
     <script type="module">
         import * as THREE from 'three';
 
-        let API_KEY = localStorage.getItem('yee_space_key') || "";
+        let API_KEY = localStorage.getItem('yee_key') || "";
         let scene, camera, renderer, particles, geometry;
         let audioContext, analyser, dataArray, isAudioReady = false;
-        let conversationHistory = [];
+        let history = [];
 
-        // 启动逻辑
+        // 验证进入
         if (API_KEY) {
-            document.getElementById('key-auth').style.display = 'none';
-            initSpace();
+            document.getElementById('auth-overlay').style.display = 'none';
+            initAll();
         }
 
-        window.saveAndStart = function() {
-            const input = document.getElementById('api-key-input').value.trim();
-            if (input.startsWith("AIza")) {
-                localStorage.setItem('yee_space_key', input);
-                API_KEY = input;
-                document.getElementById('key-auth').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('key-auth').style.display = 'none';
-                    initSpace();
-                }, 500);
+        window.handleAuth = function() {
+            const key = document.getElementById('key-input').value.trim();
+            if (key.startsWith("AIza")) {
+                localStorage.setItem('yee_key', key);
+                API_KEY = key;
+                document.getElementById('auth-overlay').style.display = 'none';
+                initAll();
             } else {
-                alert("请输入有效的 Gemini API Key");
+                alert("Key 格式不正确");
             }
-        }
+        };
 
-        function initSpace() {
+        function initAll() {
             initThree();
             initAudio();
         }
 
+        // 视觉背景
         function initThree() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -109,52 +118,57 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
             camera.position.z = 15;
+            
+            // 初始随机粒子
+            createRandomParticles();
             animate();
         }
 
-        async function initAudio() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(stream);
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-                source.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                isAudioReady = true;
-            } catch(e) { console.warn("Mic not available"); }
+        function createRandomParticles() {
+            if(particles) scene.remove(particles);
+            const count = 1500;
+            const pos = [], cols = [];
+            for(let i=0; i<count; i++) {
+                pos.push((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*10);
+                cols.push(0, 1, 0.7);
+            }
+            geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+            particles = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true, opacity: 0.6 }));
+            scene.add(particles);
         }
 
-        // 照片转粒子逻辑
-        document.getElementById('file-input').onchange = function(e) {
+        // 图片转粒子逻辑
+        document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0];
-            if(!file) return;
             const reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = (event) => {
                 const img = new Image();
-                img.onload = function() {
-                    if(particles) scene.remove(particles);
+                img.onload = () => {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    const size = 128;
+                    const size = 100;
                     canvas.width = size; canvas.height = size;
                     ctx.drawImage(img, 0, 0, size, size);
-                    const imgData = ctx.getImageData(0, 0, size, size).data;
-                    const positions = [], colors = [];
-                    for (let y = 0; y < size; y++) {
-                        for (let x = 0; x < size; x++) {
+                    const data = ctx.getImageData(0, 0, size, size).data;
+                    const pos = [], cols = [];
+                    for(let y=0; y<size; y++) {
+                        for(let x=0; x<size; x++) {
                             const i = (y * size + x) * 4;
-                            if(imgData[i+3] > 128) {
-                                positions.push((x - size/2) * 0.12, -(y - size/2) * 0.12, 0);
-                                colors.push(imgData[i]/255, imgData[i+1]/255, imgData[i+2]/255);
+                            if(data[i+3] > 128) {
+                                pos.push((x - size/2) * 0.15, -(y - size/2) * 0.15, 0);
+                                cols.push(data[i]/255, data[i+1]/255, data[i+2]/255);
                             }
                         }
                     }
+                    if(particles) scene.remove(particles);
                     geometry = new THREE.BufferGeometry();
-                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-                    particles = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: 0.8 }));
+                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+                    geometry.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+                    particles = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true }));
                     scene.add(particles);
+                    document.getElementById('ai-text').innerText = "照片记忆已加载入场。";
                 };
                 img.src = event.target.result;
             };
@@ -163,39 +177,55 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            let vol = 0;
+            let v = 0;
             if(isAudioReady && analyser) {
                 analyser.getByteFrequencyData(dataArray);
-                vol = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                v = dataArray.reduce((a, b) => a + b) / dataArray.length;
             }
             if(particles) {
-                const posArr = geometry.attributes.position.array;
-                const time = performance.now() * 0.002;
-                for (let i = 0; i < posArr.length; i += 3) {
-                    posArr[i + 2] = Math.sin(time + posArr[i] * 0.5) * (0.2 + vol * 0.04); 
-                }
-                geometry.attributes.position.needsUpdate = true;
                 particles.rotation.y += 0.001;
+                const attr = geometry.attributes.position;
+                for(let i=0; i<attr.array.length; i+=3) {
+                    attr.array[i+2] = Math.sin(performance.now()*0.002 + attr.array[i]) * (0.2 + v*0.05);
+                }
+                attr.needsUpdate = true;
             }
             renderer.render(scene, camera);
         }
 
-        async function runChat(text) {
-            if(!text) return;
-            conversationHistory.push({ role: "user", parts: [{ text: text }] });
-            document.getElementById('ai-reply').innerText = "感悟中...";
+        async function initAudio() {
             try {
-                // 使用更通用的 gemini-pro 模型
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(s);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                isAudioReady = true;
+            } catch(e) { console.warn("Mic error"); }
+        }
+
+        // 聊天逻辑
+        async function talk(text) {
+            if(!text) return;
+            history.push({ role: "user", parts: [{ text: text }] });
+            document.getElementById('ai-text').innerText = "正在倾听星际回响...";
+            
+            try {
+                // 使用最稳定的 gemini-pro
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: conversationHistory })
+                    body: JSON.stringify({ contents: history })
                 });
                 const data = await res.json();
                 const reply = data.candidates[0].content.parts[0].text;
-                document.getElementById('ai-reply').innerText = reply;
-                conversationHistory.push({ role: "model", parts: [{ text: reply }] });
-            } catch (e) { document.getElementById('ai-reply').innerText = "API 报错，请检查 Key 是否有效"; }
+                document.getElementById('ai-text').innerText = reply;
+                history.push({ role: "model", parts: [{ text: reply }] });
+            } catch (e) {
+                document.getElementById('ai-text').innerText = "连接失败，请检查 Key 是否有效并刷新。";
+            }
         }
 
         // 语音识别
@@ -206,25 +236,32 @@
             document.getElementById('mic-btn').onclick = () => { rec.start(); document.getElementById('mic-btn').classList.add('active'); };
             rec.onresult = (e) => {
                 const t = e.results[0][0].transcript;
-                document.getElementById('user-speech').innerText = `“ ${t} ”`;
-                runChat(t);
+                document.getElementById('user-text').innerText = t;
+                talk(t);
             };
             rec.onend = () => document.getElementById('mic-btn').classList.remove('active');
         }
 
-        // 卡片总结
+        // 生成卡片
         document.getElementById('save-btn').onclick = async () => {
-            document.getElementById('overlay').style.display = 'flex';
-            const prompt = "总结我们的对话，写一段30字以内富有诗意的感悟。";
+            if(history.length === 0) return alert("还没有对话");
+            document.getElementById('card-overlay').style.display = 'flex';
+            document.getElementById('card-text').innerText = "记忆凝结中...";
             try {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [...conversationHistory, { role:"user", parts:[{text:prompt}]}] })
+                    body: JSON.stringify({ contents: [...history, { role:"user", parts:[{text:"用30字以内总结这段对话，写得像日记一样唯美。"}]}] })
                 });
                 const data = await res.json();
-                document.getElementById('summary-text').innerText = data.candidates[0].content.parts[0].text;
-            } catch(e) { document.getElementById('summary-text').innerText = "暂无感悟"; }
+                document.getElementById('card-text').innerText = data.candidates[0].content.parts[0].text;
+            } catch(e) { document.getElementById('card-text').innerText = "感悟失败"; }
+        };
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         };
     </script>
 </body>
