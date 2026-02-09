@@ -3,112 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee Space - Auto Discovery</title>
+    <title>YEE SPACE - ULTIMATE</title>
     <style>
         body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
-        #display { width: 85%; font-size: 18px; min-height: 120px; line-height: 1.6; }
-        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 1px solid #00ffaa; font-size: 30px; display: none; align-items: center; justify-content: center; cursor: pointer; margin-top: 40px; }
-        #mic-btn.active { box-shadow: 0 0 30px #00ffaa; background: rgba(0,255,170,0.2); }
-        #log { position: fixed; bottom: 10px; font-size: 10px; color: #333; width: 90%; word-break: break-all; }
-        .reset { position: fixed; top: 10px; right: 10px; cursor: pointer; opacity: 0.5; font-size: 12px; }
+        #display { width: 85%; font-size: 19px; min-height: 120px; line-height: 1.6; text-shadow: 0 0 10px rgba(0,255,170,0.5); }
+        #mic-btn { width: 85px; height: 85px; border-radius: 50%; border: 1px solid #00ffaa; font-size: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; margin-top: 40px; }
+        #mic-btn.active { box-shadow: 0 0 30px #00ffaa; background: rgba(0,255,170,0.2); transform: scale(1.1); }
+        #debug-log { position: fixed; bottom: 15px; font-size: 10px; color: #333; width: 90%; word-break: break-all; }
+        .reset-btn { position: fixed; top: 15px; right: 15px; cursor: pointer; opacity: 0.4; font-size: 11px; border: 1px solid #333; padding: 4px 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div class="reset" onclick="localStorage.clear();location.reload();">[ 重置配置 ]</div>
+    <div class="reset-btn" onclick="localStorage.clear();location.reload();">重置连接</div>
 
-    <div id="display">正在扫描可用波段...</div>
+    <div id="display">正在初始化稳定版波段...</div>
     <div id="mic-btn">🎙️</div>
-    <div id="log">正在探测 API 权限...</div>
+    <div id="debug-log">Ready.</div>
 
     <script>
-        // 使用独立存储名，确保重新输入
-        let API_KEY = localStorage.getItem('yee_final_discovery');
-        let VALID_MODEL_PATH = ""; 
+        // 1. 强制使用新存储名，确保重新输入
+        let API_KEY = localStorage.getItem('yee_ultimate_key');
 
         if (!API_KEY) {
-            API_KEY = prompt("由于之前的 404 错误，我们需要重新探测您的 Key 权限。请输入 API Key：");
+            API_KEY = prompt("为了修复 404 错误，请重新输入您的 API Key：");
             if (API_KEY) {
-                localStorage.setItem('yee_final_discovery', API_KEY);
+                localStorage.setItem('yee_ultimate_key', API_KEY);
                 location.reload();
             }
         }
 
         const display = document.getElementById('display');
         const micBtn = document.getElementById('mic-btn');
-        const log = document.getElementById('log');
+        const debug = document.getElementById('debug-log');
 
-        // --- 核心逻辑：自动获取你能用的模型名单 ---
-        async function discoverModel() {
+        if(API_KEY) display.innerText = "星际通道已加固。请按住麦克风开始交谈。";
+
+        // 2. 核心请求函数 (采用最稳妥的 v1 路径)
+        async function talkToAI(text) {
+            display.innerText = "🌌 正在同步信号...";
+            debug.innerText = "发送请求至: gemini-1.5-flash-8b";
+
             try {
-                // 请求模型清单
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
-                const data = await res.json();
+                // 方案：使用 v1 稳定版路径 + flash-8b (这是目前免费额度最稳的模型名)
+                const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent?key=${API_KEY}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }]
+                    })
+                });
 
-                if (!res.ok) throw new Error(data.error?.message || "连接失败");
+                const data = await response.json();
 
-                // 筛选出所有支持 对话 (generateContent) 的模型
-                const availableModels = data.models.filter(m => 
-                    m.supportedGenerationMethods.includes("generateContent")
-                );
-
-                if (availableModels.length > 0) {
-                    // 自动选择一个最好的模型 (优先 1.5 flash)
-                    let best = availableModels.find(m => m.name.includes("1.5-flash")) || 
-                               availableModels.find(m => m.name.includes("pro")) || 
-                               availableModels[0];
-
-                    // 这里拿到的 name 已经是完整路径，如 "models/gemini-1.5-flash-latest"
-                    VALID_MODEL_PATH = best.name; 
-                    
-                    display.innerText = "星际连线成功！\n当前频率：" + best.displayName;
-                    micBtn.style.display = "flex";
-                    log.innerText = "自动选择路径: " + VALID_MODEL_PATH;
-                } else {
-                    display.innerText = "此 Key 没有任何可用模型，请在 Google AI Studio 确认。";
+                if (!response.ok) {
+                    // 如果还是 404，尝试兜底到 gemini-1.5-flash (不带 8b)
+                    if (response.status === 404) {
+                        return tryFallback(text);
+                    }
+                    throw new Error(data.error?.message || "未知错误");
                 }
-            } catch (e) {
-                display.innerText = "❌ 探测失败";
-                log.innerText = "详细报错: " + e.message;
+
+                display.innerText = data.candidates[0].content.parts[0].text;
+                debug.innerText = "响应成功";
+
+            } catch (err) {
+                display.innerText = "⚠️ 通道受干扰";
+                debug.innerText = "失败详情: " + err.message;
             }
         }
 
-        async function chat(text) {
-            display.innerText = "🌌 信号同步中...";
+        // 3. 兜底逻辑
+        async function tryFallback(text) {
+            debug.innerText = "尝试备用波段 (gemini-1.5-flash)...";
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
             try {
-                // 注意：这里动态拼接侦测到的路径
-                const url = `https://generativelanguage.googleapis.com/v1beta/${VALID_MODEL_PATH}:generateContent?key=${API_KEY}`;
-                
-                const res = await fetch(url, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: text }] }] })
                 });
-
-                const data = await res.json();
-                
-                if (data.candidates && data.candidates[0].content) {
-                    display.innerText = data.candidates[0].content.parts[0].text;
-                } else {
-                    throw new Error(JSON.stringify(data));
-                }
+                const data = await response.json();
+                display.innerText = data.candidates[0].content.parts[0].text;
             } catch (e) {
-                display.innerText = "⚠️ 传输错误";
-                log.innerText = "原因: " + e.message;
+                display.innerText = "❌ 两个频道均无法访问";
+                debug.innerText = "最终错误: " + e.message;
             }
         }
 
-        // 启动探测
-        if (API_KEY) discoverModel();
-
-        // 语音
+        // 4. 语音识别逻辑
         const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (Speech) {
             const rec = new Speech();
             rec.lang = 'zh-CN';
-            micBtn.onclick = () => { rec.start(); display.innerText = "正在倾听..."; micBtn.classList.add('active'); };
-            rec.onresult = (e) => chat(e.results[0][0].transcript);
-            rec.onend = () => micBtn.classList.remove('active');
+
+            micBtn.onclick = () => {
+                try {
+                    rec.start();
+                    micBtn.classList.add('active');
+                    display.innerText = "正在倾听...";
+                } catch(e) { console.error(e); }
+            };
+
+            rec.onresult = (e) => {
+                const transcript = e.results[0][0].transcript;
+                talkToAI(transcript);
+            };
+
+            rec.onend = () => {
+                micBtn.classList.remove('active');
+            };
+        } else {
+            display.innerText = "当前浏览器不支持语音，请尝试 Chrome。";
         }
     </script>
 </body>
