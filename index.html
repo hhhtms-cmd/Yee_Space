@@ -3,101 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee Space - Fixed</title>
+    <title>Yee Space - Auto Discovery</title>
     <style>
-        body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        #display { width: 85%; text-align: center; font-size: 20px; min-height: 100px; line-height: 1.6; }
-        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 1px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; margin-top: 40px; }
+        body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+        #display { width: 85%; font-size: 18px; min-height: 120px; line-height: 1.6; }
+        #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 1px solid #00ffaa; font-size: 30px; display: none; align-items: center; justify-content: center; cursor: pointer; margin-top: 40px; }
         #mic-btn.active { box-shadow: 0 0 30px #00ffaa; background: rgba(0,255,170,0.2); }
-        #err-log { position: fixed; bottom: 20px; color: #ff4444; font-size: 12px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; display: none; width: 80%; text-align: center; }
-        .reset-link { position: fixed; top: 10px; right: 10px; color: #333; cursor: pointer; font-size: 12px; }
+        #log { position: fixed; bottom: 10px; font-size: 10px; color: #444; width: 90%; word-break: break-all; }
+        .reset { position: fixed; top: 10px; right: 10px; cursor: pointer; opacity: 0.3; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <div class="reset-link" onclick="resetKey()">[ 重置 API KEY ]</div>
+    <div class="reset" onclick="localStorage.clear();location.reload();">[ 重置所有设置 ]</div>
 
-    <div id="display">正在初始化星际链接...</div>
+    <div id="display">正在扫描可用波段...</div>
     <div id="mic-btn">🎙️</div>
-    <div id="err-log"></div>
+    <div id="log"></div>
 
     <script>
-        // 使用新存储名称，强制刷新一次 Key 的读取
-        let API_KEY = localStorage.getItem('yee_fixed_v4');
+        let API_KEY = localStorage.getItem('yee_auto_key');
+        let VALID_MODEL = ""; // 自动获取的模型路径
 
         if (!API_KEY) {
-            API_KEY = prompt("404 错误已捕获，请重新输入 API Key 激活稳定版路径：");
-            if (API_KEY) {
-                localStorage.setItem('yee_fixed_v4', API_KEY);
-                location.reload();
-            }
+            API_KEY = prompt("请填入 API Key 开始全自动侦测：");
+            if (API_KEY) { localStorage.setItem('yee_auto_key', API_KEY); location.reload(); }
         }
 
         const display = document.getElementById('display');
-        const errLog = document.getElementById('err-log');
-        if(API_KEY) display.innerText = "星际连线已就绪。请按住麦克风说话。";
+        const micBtn = document.getElementById('mic-btn');
+        const log = document.getElementById('log');
 
-        function resetKey() {
-            localStorage.removeItem('yee_fixed_v4');
-            location.reload();
+        // 第一步：自动侦测模型名单
+        async function discoverModel() {
+            try {
+                log.innerText = "正在获取模型清单...";
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error?.message || "无法连接列表");
+
+                // 寻找支持生成内容的最先进模型
+                const flash = data.models.find(m => m.name.includes('flash') && m.supportedGenerationMethods.includes('generateContent'));
+                const pro = data.models.find(m => m.name.includes('pro') && m.supportedGenerationMethods.includes('generateContent'));
+                const any = data.models.find(m => m.supportedGenerationMethods.includes('generateContent'));
+
+                const target = flash || pro || any;
+
+                if (target) {
+                    VALID_MODEL = target.name; // 得到类似 "models/gemini-1.5-flash-latest"
+                    display.innerText = "连接成功！\n当前波段：" + target.displayName;
+                    micBtn.style.display = "flex";
+                    log.innerText = "使用路径: " + VALID_MODEL;
+                } else {
+                    display.innerText = "抱歉，你的 Key 没有任何可用模型权限。";
+                }
+            } catch (e) {
+                display.innerText = "❌ 侦测失败";
+                log.innerText = "错误详情: " + e.message;
+            }
         }
 
+        // 第二步：执行对话
         async function chat(text) {
-            display.innerText = "🌌 信号传输中...";
-            errLog.style.display = "none";
-
-            // 修正后的关键 URL：使用 v1beta 和 models/ 前缀
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-
+            display.innerText = "🌌 传输中...";
             try {
-                const response = await fetch(url, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${VALID_MODEL}:generateContent?key=${API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: text }] }]
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: text }] }] })
                 });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error?.message || "请求失败");
-                }
-
-                if (data.candidates && data.candidates[0].content) {
-                    display.innerText = data.candidates[0].content.parts[0].text;
-                }
-            } catch (err) {
-                console.error(err);
-                display.innerText = "⚠️ 连线中断";
-                errLog.style.display = "block";
-                errLog.innerText = "诊断信息: " + err.message;
+                const data = await res.json();
+                display.innerText = data.candidates[0].content.parts[0].text;
+            } catch (e) {
+                display.innerText = "⚠️ 传输错误";
+                log.innerText = e.message;
             }
         }
 
         // 语音逻辑
+        if (API_KEY) discoverModel();
+
         const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (Speech) {
             const rec = new Speech();
             rec.lang = 'zh-CN';
-            const btn = document.getElementById('mic-btn');
-
-            btn.onclick = () => {
-                try {
-                    rec.start();
-                    btn.classList.add('active');
-                    display.innerText = "正在倾听...";
-                } catch(e) {}
-            };
-
-            rec.onresult = (e) => {
-                const result = e.results[0][0].transcript;
-                chat(result);
-            };
-
-            rec.onend = () => btn.classList.remove('active');
-        } else {
-            display.innerText = "当前浏览器暂不支持语音功能";
+            micBtn.onclick = () => { rec.start(); display.innerText = "请说话..."; micBtn.classList.add('active'); };
+            rec.onresult = (e) => chat(e.results[0][0].transcript);
+            rec.onend = () => micBtn.classList.remove('active');
         }
     </script>
 </body>
