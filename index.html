@@ -3,35 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee's Space (Auto-Logic)</title>
+    <title>Yee's Space V3</title>
     <style>
         :root { --main: #00ffaa; --bg: #050505; }
         body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; overflow: hidden; }
-
-        /* 登录层 */
         #login-box { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .box-content { background: #111; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 300px; }
         #key-input { width: 100%; padding: 12px; margin: 20px 0; background: #222; border: 1px solid #555; color: var(--main); text-align: center; border-radius: 5px; outline: none; }
         .btn-enter { background: var(--main); color: black; border: none; padding: 10px 30px; border-radius: 20px; font-weight: bold; cursor: pointer; }
-
-        /* 主界面 */
         #top-bar { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 100; }
-        .action-btn { background: rgba(255,255,255,0.1); border: 1px solid #444; color: white; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; display: inline-block; }
-        .reset-btn { border-color: #ff5555; color: #ffaaaa; }
-        
+        .action-btn { background: rgba(255,255,255,0.1); border: 1px solid #444; color: white; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; }
         #chat-container { position: absolute; top: 160px; width: 100%; text-align: center; z-index: 10; padding: 0 20px; box-sizing: border-box; }
         #ai-msg { font-size: 19px; line-height: 1.6; min-height: 40px; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
-        #model-tag { font-size: 10px; color: #555; margin-top: 5px; border: 1px solid #333; padding: 2px 8px; border-radius: 10px; display: inline-block; }
-
-        #bottom-ctrl { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 100; display: flex; flex-direction: column; align-items: center; }
-        #mic-circle { width: 65px; height: 65px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 28px; cursor: pointer; margin-bottom: 20px; }
+        #status { font-size: 10px; color: #444; margin-top: 10px; }
+        #mic-circle { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; border: 1px solid #333; background: #111; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="login-box">
         <div class="box-content">
-            <h2 style="margin:0; font-weight:200;">YEE SPACE</h2>
+            <h2 style="letter-spacing:2px;">YEE SPACE V3</h2>
             <p style="font-size:12px; color:#888;">请输入您的 Google API Key</p>
             <input type="password" id="key-input" placeholder="AIzaSy...">
             <button class="btn-enter" onclick="saveKey()">激活空间</button>
@@ -40,119 +32,109 @@
 
     <div id="top-bar">
         <label class="action-btn">📸 上传照片 <input type="file" id="file-in" hidden accept="image/*"></label>
-        <button class="action-btn reset-btn" onclick="resetKey()">🔄 更换 KEY</button>
+        <button class="action-btn" onclick="resetKey()">🔄 更换 KEY</button>
     </div>
 
     <div id="chat-container">
-        <div id="ai-msg">正在寻找可用的星际波段...</div>
-        <div id="model-tag">侦测中...</div>
-        <div id="user-msg" style="font-size:14px; opacity:0.5; margin-top:10px;"></div>
+        <div id="ai-msg">准备就绪。请说话。</div>
+        <div id="status">Status: Ready</div>
+        <div id="user-msg" style="font-size:14px; opacity:0.5; margin-top:20px;"></div>
     </div>
 
-    <div id="bottom-ctrl">
-        <div id="mic-circle">🎙️</div>
-    </div>
+    <div id="mic-circle" id="mic-btn">🎙️</div>
 
     <script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } } </script>
 
     <script type="module">
         import * as THREE from 'three';
 
-        let API_KEY = localStorage.getItem('yee_fix_key'); 
-        let ACTIVE_MODEL_PATH = ""; // 自动获取的路径
-        let scene, camera, renderer, particles, history = [];
+        // 使用 V3 存储键名，强制用户重新输入一次 Key，排除旧干扰
+        let API_KEY = localStorage.getItem('yee_v3_key'); 
+        let history = [];
 
-        if (API_KEY) { document.getElementById('login-box').style.display = 'none'; init(); }
-
-        window.saveKey = () => {
-            const input = document.getElementById('key-input').value.trim();
-            if (input) { localStorage.setItem('yee_fix_key', input); location.reload(); }
-        };
-
-        window.resetKey = () => { localStorage.removeItem('yee_fix_key'); location.reload(); };
-
-        // --- 核心：自动寻找能用的模型 ---
-        async function detectModel() {
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
-                const data = await res.json();
-                
-                // 筛选出支持生成内容的所有模型
-                const models = data.models.filter(m => m.supportedGenerationMethods.includes("generateContent"));
-                
-                // 优先级排序：1.5-flash > 1.5-pro > 1.0-pro
-                let target = models.find(m => m.name.includes("1.5-flash")) || 
-                             models.find(m => m.name.includes("gemini-pro")) || 
-                             models[0];
-
-                if (target) {
-                    ACTIVE_MODEL_PATH = target.name; // 比如 "models/gemini-1.5-flash"
-                    document.getElementById('model-tag').innerText = "已适配: " + target.displayName;
-                    document.getElementById('ai-msg').innerText = "星际连线成功。";
-                } else {
-                    throw new Error("无可用模型");
-                }
-            } catch (e) {
-                document.getElementById('ai-msg').innerText = "侦测失败，请检查 Key 是否有效。";
-                console.error(e);
-            }
+        if (API_KEY) { 
+            document.getElementById('login-box').style.display = 'none'; 
+            initVisuals(); 
         }
 
-        async function init() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        window.saveKey = () => {
+            const val = document.getElementById('key-input').value.trim();
+            if (val) { localStorage.setItem('yee_v3_key', val); location.reload(); }
+        };
+
+        window.resetKey = () => { localStorage.removeItem('yee_v3_key'); location.reload(); };
+
+        function initVisuals() {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
             camera.position.z = 15;
-            
-            // 粒子系统
             const geo = new THREE.BufferGeometry();
             const pos = [];
-            for(let i=0; i<1000; i++) pos.push((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*10);
+            for(let i=0; i<800; i++) pos.push((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*10);
             geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            particles = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.05, color: 0x00ffaa }));
-            scene.add(particles);
-
-            function animate() {
-                requestAnimationFrame(animate);
-                particles.rotation.y += 0.001;
-                renderer.render(scene, camera);
-            }
-            animate();
-
-            // 开始自动侦测模型
-            await detectModel();
+            const points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.05, color: 0x00ffaa }));
+            scene.add(points);
+            function anim() { requestAnimationFrame(anim); points.rotation.y += 0.002; renderer.render(scene, camera); }
+            anim();
         }
 
-        async function chat(text) {
-            if (!ACTIVE_MODEL_PATH) return;
-            document.getElementById('user-msg').innerText = text;
-            document.getElementById('ai-msg').innerText = "思考中...";
+        async function talkToGemini(text) {
+            document.getElementById('user-msg').innerText = "“" + text + "”";
+            document.getElementById('ai-msg').innerText = "正在同步星际信号...";
+            document.getElementById('status').innerText = "Connecting...";
+
             history.push({ role: "user", parts: [{ text: text }] });
 
             try {
-                // 动态使用侦测到的路径
-                const url = `https://generativelanguage.googleapis.com/v1beta/${ACTIVE_MODEL_PATH}:generateContent?key=${API_KEY}`;
-                const res = await fetch(url, {
+                // 使用官方推荐的 v1 版本，直接调用 1.5-flash
+                const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+                
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: history })
                 });
-                const data = await res.json();
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    // 核心调试：直接显示服务器返回的原始错误
+                    const errorDetail = data.error ? data.error.message : "Network Error";
+                    throw new Error(errorDetail);
+                }
+
                 const reply = data.candidates[0].content.parts[0].text;
                 document.getElementById('ai-msg').innerText = reply;
+                document.getElementById('status').innerText = "Status: Received";
                 history.push({ role: "model", parts: [{ text: reply }] });
+
             } catch (e) {
-                document.getElementById('ai-msg').innerText = "发送失败。";
+                console.error(e);
+                document.getElementById('ai-msg').innerText = "⚠️ 信号中断";
+                document.getElementById('status').innerText = "错误详情: " + e.message;
+                // 如果是 Key 错误，红色加亮提示
+                if(e.message.includes("key")) {
+                    document.getElementById('status').style.color = "red";
+                }
             }
         }
 
-        // 语音绑定
-        const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        rec.lang = 'zh-CN';
-        document.getElementById('mic-circle').onclick = () => rec.start();
-        rec.onresult = (e) => chat(e.results[0][0].transcript);
+        // 语音控制
+        const mic = document.getElementById('mic-circle');
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'zh-CN';
+
+        mic.onclick = () => {
+            try { recognition.start(); document.getElementById('status').innerText = "Status: Listening..."; } catch(e){}
+        };
+
+        recognition.onresult = (e) => {
+            const transcript = e.results[0][0].transcript;
+            talkToGemini(transcript);
+        };
     </script>
 </body>
 </html>
