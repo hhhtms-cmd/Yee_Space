@@ -3,76 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee的日记空间 - 最终兼容版</title>
+    <title>Yee的日记空间</title>
     <style>
         :root { --accent-color: #00ffaa; }
-        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #chat-box { width: 80%; max-width: 500px; text-align: center; }
-        #ai-reply { font-size: 1.2rem; margin-bottom: 20px; line-height: 1.5; min-height: 3em; }
-        #text-input { background: #111; border: 1px solid #333; color: white; padding: 10px 20px; border-radius: 20px; width: 100%; outline: none; }
-        #text-input:focus { border-color: var(--accent-color); }
-        #status { font-size: 10px; color: #666; margin-top: 10px; }
+        body { margin: 0; background: #000; overflow: hidden; color: white; font-family: "PingFang SC", sans-serif; }
+        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 10; opacity: 0.8; font-size: 12px; letter-spacing: 2px; }
+        #chat-area { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 100%; text-align: center; z-index: 5; padding: 0 20px; box-sizing: border-box; }
+        #ai-reply { font-size: 20px; font-weight: 300; margin-bottom: 20px; line-height: 1.6; transition: 0.5s; }
+        #text-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 30px; color: white; text-align: center; width: 280px; outline: none; font-size: 14px; padding: 12px 20px; transition: 0.3s; }
+        #text-input:focus { border-color: var(--accent-color); background: rgba(255,255,255,0.1); }
+        #error-log { position: fixed; bottom: 20px; width: 100%; text-align: center; color: #ff5555; font-size: 12px; opacity: 0.7; }
+        #start-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: pointer; letter-spacing: 5px; }
     </style>
 </head>
 <body>
 
-    <div id="chat-box">
-        <div id="ai-reply">你好 Yee，正在尝试连接 1.5 Flash 频道...</div>
-        <input type="text" id="text-input" placeholder="输入并回车...">
-        <div id="status">API STATUS: IDLE</div>
+    <div id="start-mask">点击开启 Yee 的空间</div>
+
+    <nav>
+        <div style="font-weight: 500;">YEE DIARY SPACE</div>
+        <div style="opacity: 0.5;">FREE TIER ACTIVE</div>
+    </nav>
+
+    <div id="chat-area">
+        <div id="ai-reply">你好 Yee，这次我直接对准了你的密钥频率。</div>
+        <input type="text" id="text-input" placeholder="输入并回车开始对话..." autofocus>
     </div>
 
+    <div id="error-log"></div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
     <script type="module">
-        // 你的 Key
-        const API_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
-        
-        // 免费版最稳的路径：v1beta + gemini-1.5-flash
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+        import * as THREE from 'three';
 
-        let history = [];
-
-        async function chat(text) {
-            const replyEl = document.getElementById('ai-reply');
-            const statusEl = document.getElementById('status');
+        // --- 核心请求逻辑 ---
+        async function runChat(text) {
+            const replyBox = document.getElementById('ai-reply');
+            const errorBox = document.getElementById('error-log');
             
-            replyEl.innerText = "正在呼叫 Gemini...";
-            statusEl.innerText = "API STATUS: CONNECTING...";
+            replyBox.innerText = "正在链接 Gemini...";
+            errorBox.innerText = "";
 
-            history.push({ role: "user", parts: [{ text: text }] });
+            // 直接硬编码 Key，确保不会出现 "Key not found"
+            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw";
 
             try {
-                const response = await fetch(API_URL, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: history })
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }]
+                    })
                 });
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    // 如果报 404，这里会打印出 Google 给的详细解释
-                    console.error("DEBUG ERROR:", data);
-                    throw new Error(data.error ? data.error.message : "未知错误");
+                    // 详细输出错误，方便诊断
+                    console.error("API Error Data:", data);
+                    errorBox.innerText = `[API错误] 状态码: ${response.status} - ${data.error ? data.error.message : '未知'}`;
+                    replyBox.innerText = "信号中断，请查看下方提示。";
+                    return;
                 }
 
-                const result = data.candidates[0].content.parts[0].text;
-                replyEl.innerText = result;
-                history.push({ role: "model", parts: [{ text: result }] });
-                statusEl.innerText = "API STATUS: SUCCESS (v1beta/flash)";
-
+                if (data.candidates && data.candidates[0].content) {
+                    replyBox.innerText = data.candidates[0].content.parts[0].text;
+                }
             } catch (err) {
-                statusEl.innerText = "API STATUS: ERROR";
-                replyEl.innerHTML = `<span style="color:red">错误: ${err.message}</span><br>
-                <small style="color:#666">如果仍是 404，请检查 Cloud Console 是否启用了 Generative Language API</small>`;
+                errorBox.innerText = `[网络错误] ${err.message}`;
+                replyBox.innerText = "连接失败。";
             }
         }
 
+        // --- 3D 视觉背景 ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const geometry = new THREE.BufferGeometry();
+        const count = 5000;
+        const positions = new Float32Array(count * 3);
+        for(let i=0; i<count*3; i++) positions[i] = (Math.random()-0.5) * 25;
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const points = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.05, color: 0x00ffaa, transparent: true, opacity: 0.6 }));
+        scene.add(points);
+        camera.position.z = 10;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            points.rotation.y += 0.001;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- 交互 ---
+        document.getElementById('start-mask').onclick = () => document.getElementById('start-mask').style.display = 'none';
+        
         document.getElementById('text-input').onkeypress = (e) => {
             if(e.key === 'Enter') {
-                chat(e.target.value);
+                runChat(e.target.value);
                 e.target.value = "";
             }
         };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
