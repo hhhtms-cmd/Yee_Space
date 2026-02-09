@@ -3,34 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee Space - 已修复</title>
+    <title>Yee Space - 自动检测模型版</title>
     <style>
         body { margin: 0; background: #000; color: #00ffaa; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #display { width: 80%; text-align: center; font-size: 20px; margin-bottom: 30px; line-height: 1.5; min-height: 60px; }
+        #display { width: 80%; text-align: center; font-size: 20px; margin-bottom: 30px; line-height: 1.5; min-height: 60px; padding: 20px; }
         #error-log { color: #ff4444; font-size: 12px; margin-top: 20px; background: rgba(255,0,0,0.1); padding: 10px; border-radius: 5px; max-width: 90%; word-break: break-all; max-height: 200px; overflow-y: auto; }
         .btn { background: none; border: 1px solid #00ffaa; color: #00ffaa; padding: 10px 20px; border-radius: 20px; cursor: pointer; margin: 5px; font-size: 12px; }
         .btn:hover { background: rgba(0,255,170,0.1); }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
         #mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #00ffaa; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 20px; transition: all 0.3s; }
         #mic-btn:hover { transform: scale(1.05); }
         #mic-btn.active { background: rgba(0,255,170,0.2); box-shadow: 0 0 20px #00ffaa; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-        #key-panel { position: fixed; top: 10px; right: 10px; display: flex; gap: 5px; }
+        #key-panel { position: fixed; top: 10px; right: 10px; display: flex; gap: 5px; flex-wrap: wrap; max-width: 300px; }
         #test-panel { position: fixed; bottom: 10px; left: 10px; }
-        .model-selector { position: fixed; top: 10px; left: 10px; }
+        .model-info { position: fixed; top: 10px; left: 10px; background: rgba(0,255,170,0.1); padding: 10px; border-radius: 5px; border: 1px solid #00ffaa; font-size: 11px; max-width: 250px; }
         select { background: #000; border: 1px solid #00ffaa; color: #00ffaa; padding: 8px; border-radius: 5px; font-size: 11px; }
     </style>
 </head>
 <body>
 
-    <div class="model-selector">
-        <select id="model-select" onchange="saveModel()">
-            <option value="gemini-pro">Gemini Pro</option>
-            <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash</option>
-            <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
-        </select>
+    <div class="model-info" id="model-info">
+        <div>🤖 当前模型: <span id="current-model">检测中...</span></div>
+        <div style="margin-top: 5px; font-size: 10px; color: #888;">可用模型将自动检测</div>
     </div>
 
     <div id="key-panel">
+        <button class="btn" onclick="listModels()">检测可用模型</button>
         <button class="btn" onclick="testConnection()">测试连接</button>
         <button class="btn" onclick="resetKey()">重置 Key</button>
     </div>
@@ -48,22 +47,13 @@
     <script>
         // --- 1. Key 和模型管理 ---
         let API_KEY = localStorage.getItem('yee_debug_key');
-        let SELECTED_MODEL = localStorage.getItem('yee_model') || 'gemini-pro';
-
-        // 恢复模型选择
-        document.getElementById('model-select').value = SELECTED_MODEL;
-
-        function saveModel() {
-            SELECTED_MODEL = document.getElementById('model-select').value;
-            localStorage.setItem('yee_model', SELECTED_MODEL);
-            showLog(`✅ 已切换到模型: ${SELECTED_MODEL}`, false);
-        }
+        let AVAILABLE_MODELS = [];
+        let CURRENT_MODEL = null;
 
         if (!API_KEY) {
             API_KEY = prompt("请输入您的 Google API Key:\n(获取地址: https://aistudio.google.com/app/apikey)");
             if (API_KEY) {
                 localStorage.setItem('yee_debug_key', API_KEY);
-                location.reload();
             } else {
                 document.getElementById('display').innerText = "❌ 未提供 API Key";
             }
@@ -82,32 +72,79 @@
             log.innerText = message;
         }
 
-        // --- 2. 核心请求函数 (✅ 完全修复) ---
+        // --- 2. 列出可用模型 ---
+        async function listModels() {
+            const display = document.getElementById('display');
+            display.innerText = "🔍 正在检测可用模型...";
+            showLog("正在查询 Google API...", false);
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+                const data = await response.json();
+
+                console.log("📋 API 返回数据:", data);
+
+                if (!response.ok) {
+                    throw new Error(`API 错误: ${data.error?.message || '未知错误'}`);
+                }
+
+                if (data.models && data.models.length > 0) {
+                    // 过滤出支持 generateContent 的模型
+                    AVAILABLE_MODELS = data.models.filter(model => 
+                        model.supportedGenerationMethods?.includes('generateContent')
+                    );
+
+                    console.log("✅ 可用模型:", AVAILABLE_MODELS);
+
+                    // 显示模型列表
+                    let modelList = "📋 检测到以下可用模型:\n\n";
+                    AVAILABLE_MODELS.forEach((model, index) => {
+                        modelList += `${index + 1}. ${model.name}\n`;
+                    });
+
+                    display.innerText = modelList;
+                    showLog(`✅ 找到 ${AVAILABLE_MODELS.length} 个可用模型`, false);
+
+                    // 自动选择第一个可用模型
+                    if (AVAILABLE_MODELS.length > 0) {
+                        CURRENT_MODEL = AVAILABLE_MODELS[0].name;
+                        document.getElementById('current-model').innerText = CURRENT_MODEL.split('/').pop();
+                        
+                        setTimeout(() => {
+                            display.innerText = "✅ 模型检测完成\n点击麦克风或文字测试按钮开始对话";
+                        }, 3000);
+                    }
+                } else {
+                    throw new Error("未找到任何可用模型");
+                }
+
+            } catch (err) {
+                display.innerText = "❌ 检测失败";
+                showLog("错误: " + err.message + "\n\n请检查:\n1. API Key 是否正确\n2. 是否已启用 Gemini API\n访问: https://aistudio.google.com");
+                console.error("检测模型失败:", err);
+            }
+        }
+
+        // --- 3. 核心请求函数 ---
         async function askGemini(text) {
             const display = document.getElementById('display');
             
-            display.innerText = "💭 思考中...";
-            document.getElementById('error-log').style.display = "none";
-
-            if (!API_KEY || API_KEY.trim() === '') {
-                display.innerText = "⚠️ API Key 未设置";
-                showLog("请点击右上角'重置 Key'按钮重新输入");
+            // 如果还没检测模型，先检测
+            if (!CURRENT_MODEL) {
+                display.innerText = "⚠️ 请先点击'检测可用模型'按钮";
+                showLog("需要先检测可用的 API 模型");
                 return;
             }
 
+            display.innerText = "💭 思考中...";
+            document.getElementById('error-log').style.display = "none";
+
             try {
-                // ✅ 修复: 根据模型选择正确的 API 版本
-                let url;
-                if (SELECTED_MODEL === 'gemini-pro') {
-                    // gemini-pro 使用 v1 版本
-                    url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
-                } else {
-                    // 1.5 系列使用 v1beta 版本
-                    url = `https://generativelanguage.googleapis.com/v1beta/models/${SELECTED_MODEL}:generateContent?key=${API_KEY}`;
-                }
+                // 使用检测到的模型名称
+                const url = `https://generativelanguage.googleapis.com/v1beta/${CURRENT_MODEL}:generateContent?key=${API_KEY}`;
                 
                 console.log("🔗 请求 URL:", url.replace(API_KEY, 'YOUR_KEY'));
-                console.log("🤖 使用模型:", SELECTED_MODEL);
+                console.log("🤖 使用模型:", CURRENT_MODEL);
                 console.log("📝 发送内容:", text);
 
                 const response = await fetch(url, {
@@ -122,27 +159,12 @@
                     })
                 });
 
-                console.log("📡 响应状态:", response.status);
-
                 const data = await response.json();
                 console.log("📦 响应数据:", data);
 
                 if (!response.ok) {
-                    let errorMsg = "未知错误";
-                    if (data.error) {
-                        errorMsg = `${data.error.message || ''}\n状态码: ${data.error.code || response.status}`;
-                        
-                        if (data.error.code === 400) {
-                            errorMsg += "\n\n💡 可能原因:\n- API Key 格式错误\n- 请求参数有误";
-                        } else if (data.error.code === 403 || data.error.status === "PERMISSION_DENIED") {
-                            errorMsg += "\n\n💡 可能原因:\n- API Key 无效或已过期\n- 未启用 Gemini API\n请访问: https://aistudio.google.com";
-                        } else if (data.error.code === 404) {
-                            errorMsg += "\n\n💡 模型不可用\n尝试切换左上角的模型选择器";
-                        } else if (data.error.code === 429) {
-                            errorMsg += "\n\n💡 请求过于频繁，请稍后再试";
-                        }
-                    }
-                    
+                    let errorMsg = data.error?.message || "未知错误";
+                    errorMsg += `\n状态码: ${response.status}`;
                     throw new Error(errorMsg);
                 }
 
@@ -153,36 +175,44 @@
                     if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
                         const responseText = candidate.content.parts[0].text;
                         display.innerText = responseText;
-                        showLog(`✅ 成功 | 模型: ${SELECTED_MODEL} | ${new Date().toLocaleTimeString()}`, false);
+                        showLog(`✅ 成功 | ${new Date().toLocaleTimeString()}`, false);
                     } else {
-                        throw new Error("响应格式异常: 无法提取文本内容");
+                        throw new Error("响应格式异常");
                     }
-                } else if (data.candidates && data.candidates[0].finishReason === 'SAFETY') {
-                    display.innerText = "⚠️ 内容被安全过滤器拦截";
-                    showLog("请尝试换个说法或问题", false);
+                } else if (data.candidates && data.candidates[0]?.finishReason === 'SAFETY') {
+                    display.innerText = "⚠️ 内容被安全过滤器拦截\n请尝试换个说法";
+                    showLog("提示: 请使用更中性的表达", false);
                 } else {
-                    throw new Error("⚠️ 收到空响应");
+                    throw new Error("收到空响应");
                 }
 
             } catch (err) {
-                display.innerText = "❌ 发送失败";
-                showLog("🔍 错误详情:\n" + err.message);
-                console.error("❌ 完整错误:", err);
+                display.innerText = "❌ 请求失败";
+                showLog("错误详情:\n" + err.message);
+                console.error("请求失败:", err);
             }
         }
 
-        // --- 3. 测试函数 ---
+        // --- 4. 测试函数 ---
         function testWithText() {
+            if (!CURRENT_MODEL) {
+                alert("请先点击'检测可用模型'按钮");
+                return;
+            }
             const testMsg = prompt("输入测试文字:", "你好，请用一句话介绍自己");
             if (testMsg) askGemini(testMsg);
         }
 
         async function testConnection() {
+            if (!CURRENT_MODEL) {
+                alert("请先点击'检测可用模型'按钮");
+                return;
+            }
             showLog("🔄 正在测试 API 连接...", false);
-            await askGemini("你好，请回复'连接成功'");
+            await askGemini("你好，请简短回复'连接成功'");
         }
 
-        // --- 4. 语音识别 ---
+        // --- 5. 语音识别 ---
         const micBtn = document.getElementById('mic-btn');
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -194,9 +224,12 @@
             recognition.continuous = false;
             recognition.interimResults = false;
 
-            document.getElementById('display').innerText = API_KEY ? "✅ 已就绪，点击麦克风说话" : "请提供 API Key";
-
             micBtn.onclick = () => {
+                if (!CURRENT_MODEL) {
+                    alert("请先点击右上角'检测可用模型'按钮");
+                    return;
+                }
+
                 try {
                     recognition.start();
                     micBtn.classList.add('active');
@@ -237,12 +270,13 @@
             };
         }
 
-        // 页面加载完成提示
+        // --- 6. 自动初始化 ---
         window.onload = () => {
             if (API_KEY) {
-                console.log("✅ 系统已就绪");
-                console.log("🤖 当前模型:", SELECTED_MODEL);
-                console.log("💡 提示: 点击'测试连接'验证 API");
+                console.log("✅ API Key 已加载");
+                document.getElementById('display').innerText = "👆 请先点击右上角\n'检测可用模型'按钮\n\n这将自动查找您账户可用的模型";
+            } else {
+                document.getElementById('display').innerText = "❌ 请刷新页面并输入 API Key";
             }
         };
     </script>
