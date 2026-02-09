@@ -1,31 +1,69 @@
-async function runChat(text) {
-    const replyBox = document.getElementById('ai-reply');
-    // 1. 确保没有空格：使用 .trim() 强行去掉 Key 前后的隐形字符
-    const CLEAN_KEY = "YOUR_NEW_KEY".trim(); 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Yee 的终极调试空间</title>
+    <style>
+        body { background: #000; color: #00ffaa; font-family: monospace; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        #log { width: 90%; max-width: 600px; height: 300px; background: #111; border: 1px solid #333; padding: 10px; overflow-y: auto; font-size: 12px; color: #aaa; margin-top: 20px; }
+        input { background: #222; border: 1px solid #00ffaa; color: #fff; padding: 10px; width: 300px; border-radius: 5px; outline: none; }
+        .error { color: #ff4444; }
+        .success { color: #00ffaa; }
+    </style>
+</head>
+<body>
+
+    <h2>GEMINI 信号探测器</h2>
+    <p>正在尝试连接：gemini-1.5-flash</p>
     
-    // 2. 构造标准的 v1beta 路径
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CLEAN_KEY}`;
+    <input type="text" id="user-input" placeholder="随便打个字测试，按回车...">
+    
+    <div id="log">--- 系统日志准备就绪 ---</div>
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: text }] }]
-            })
-        });
+    <script>
+        // 【核心配置】请确保这里没有任何多余的空格
+        const RAW_KEY = "AIzaSyDk8ZrNTwryMCp1IWIZ8ufwYqgiA00JHjw"; 
+        
+        async function runTest(text) {
+            const logEl = document.getElementById('log');
+            const cleanKey = RAW_KEY.trim(); // 强行去除可能存在的空格
+            
+            // 构造最纯净的 URL
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
+            
+            logEl.innerHTML += `<div class="info">>> 发出请求...</div>`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }]
+                    })
+                });
 
-        const data = await response.json();
+                const data = await response.json();
 
-        if (response.ok) {
-            const reply = data.candidates[0].content.parts[0].text;
-            replyBox.innerText = reply;
-        } else {
-            // 如果报错，直接把错误通过弹窗显示出来，方便我们抓现行
-            alert("API 依然报错: " + data.error.message);
-            console.error(data.error);
+                if (response.ok) {
+                    const reply = data.candidates[0].content.parts[0].text;
+                    logEl.innerHTML += `<div class="success">>> [成功] Gemini 回复：${reply}</div>`;
+                } else {
+                    // 这里的报错会直接告诉你 Google 的真实想法
+                    logEl.innerHTML += `<div class="error">>> [API 报错] 状态码: ${response.status}</div>`;
+                    logEl.innerHTML += `<div class="error">>> 详情: ${JSON.stringify(data.error)}</div>`;
+                }
+            } catch (err) {
+                logEl.innerHTML += `<div class="error">>> [网络故障] ${err.message}</div>`;
+            }
+            logEl.scrollTop = logEl.scrollHeight;
         }
-    } catch (err) {
-        replyBox.innerText = "网络连接异常。";
-    }
-}
+
+        document.getElementById('user-input').onkeypress = (e) => {
+            if(e.key === 'Enter') {
+                runTest(e.target.value);
+                e.target.value = "";
+            }
+        };
+    </script>
+</body>
+</html>
