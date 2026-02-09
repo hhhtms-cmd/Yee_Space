@@ -3,93 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee's Memory Space</title>
+    <title>Yee's Photo Particle Space</title>
     <style>
         :root { --accent-color: #00ffaa; --bg-color: #050505; }
-        body { margin: 0; background: var(--bg-color); overflow: hidden; color: white; font-family: "PingFang SC", "Helvetica Neue", sans-serif; }
+        body { margin: 0; background: var(--bg-color); overflow: hidden; color: white; font-family: "PingFang SC", sans-serif; }
         
-        /* 1. 欢迎/Key 输入界面 */
-        #welcome-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.5s; }
-        #welcome-screen h1 { font-weight: 200; letter-spacing: 5px; font-size: 24px; margin-bottom: 30px; text-shadow: 0 0 10px rgba(0,255,170,0.5); }
-        .key-input-box { display: flex; flex-direction: column; align-items: center; gap: 15px; }
-        #api-key-input { background: rgba(255,255,255,0.1); border: 1px solid #333; color: white; padding: 10px 15px; width: 300px; border-radius: 8px; text-align: center; outline: none; transition: 0.3s; }
-        #api-key-input:focus { border-color: var(--accent-color); background: rgba(255,255,255,0.15); }
-        #start-btn { padding: 10px 30px; border-radius: 20px; background: var(--accent-color); color: black; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        #start-btn:hover { box-shadow: 0 0 20px var(--accent-color); transform: scale(1.05); }
-        .note { font-size: 10px; opacity: 0.4; margin-top: 20px; max-width: 300px; text-align: center; line-height: 1.5; }
+        /* 1. 初始 Key 输入 */
+        #welcome-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #api-key-input { background: rgba(255,255,255,0.1); border: 1px solid #333; color: white; padding: 12px; width: 300px; border-radius: 8px; text-align: center; margin-bottom: 20px; outline: none; }
+        #start-btn { padding: 10px 40px; border-radius: 20px; background: var(--accent-color); color: black; border: none; font-weight: bold; cursor: pointer; }
 
-        /* 2. 主界面 UI */
-        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 10; opacity: 0.8; font-size: 12px; letter-spacing: 2px; }
-        #status-bar { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); z-index: 10; font-size: 12px; backdrop-filter: blur(5px); }
-        .dot { width: 6px; height: 6px; background: #555; border-radius: 50%; margin-right: 8px; transition: 0.3s; }
-        
-        #chat-area { position: absolute; top: 180px; width: 100%; text-align: center; z-index: 20; padding: 0 20px; box-sizing: border-box; }
-        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 20px; min-height: 1.5em; text-shadow: 0 0 10px rgba(0,0,0,0.5); line-height: 1.6; max-width: 800px; margin-left: auto; margin-right: auto; }
-        #user-speech { font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 25px; font-style: italic; }
-        
-        #text-input { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 25px; color: white; text-align: center; width: 260px; outline: none; font-size: 14px; padding: 10px 20px; transition: 0.3s; }
-        #text-input:focus { border-color: var(--accent-color); background: rgba(0,0,0,0.5); width: 300px; }
+        /* 2. 上传按钮样式 (仿照截图) */
+        #upload-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; text-align: center; }
+        .upload-label { background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.3); padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 12px; transition: 0.3s; }
+        .upload-label:hover { background: rgba(255,255,255,0.2); border-color: var(--accent-color); }
+        #file-input { display: none; }
 
+        /* 3. 主 UI */
+        nav { position: absolute; top: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 2px; z-index: 10; opacity: 0.6; }
+        #chat-area { position: absolute; top: 150px; width: 100%; text-align: center; z-index: 5; padding: 0 20px; box-sizing: border-box; }
+        #ai-reply { font-size: 18px; font-weight: 300; margin-bottom: 10px; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+        
         #controls { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 20; }
-        #mic-btn { width: 60px; height: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-bottom: 20px; font-size: 24px; backdrop-filter: blur(5px); }
-        #mic-btn.active { border-color: #ff4444; box-shadow: 0 0 20px #ff4444; background: rgba(255,0,0,0.1); }
-        
-        #save-btn { padding: 10px 25px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: white; cursor: pointer; font-size: 11px; letter-spacing: 2px; transition: 0.3s; text-transform: uppercase; }
-        #save-btn:hover { background: white; color: black; box-shadow: 0 0 15px white; }
+        #mic-btn { width: 60px; height: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
+        #mic-btn.active { border-color: #ff4444; box-shadow: 0 0 20px #ff4444; }
 
-        /* 3. 卡片弹窗 */
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(15px); }
-        .card { width: 320px; padding: 40px; background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
-        .card-date { font-size: 10px; opacity: 0.5; margin-bottom: 30px; letter-spacing: 4px; color: var(--accent-color); }
-        .card-content { font-size: 16px; line-height: 1.8; font-weight: 300; margin-bottom: 40px; color: #eee; }
-        .card-tag { display: inline-block; padding: 5px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 10px; color: var(--accent-color); }
-        .close-card { position: absolute; top: 20px; right: 20px; cursor: pointer; opacity: 0.5; font-size: 20px; }
-        
-        /* 重新设置 Key 的小按钮 */
-        #reset-key { position: fixed; top: 10px; left: 10px; opacity: 0.2; font-size: 10px; cursor: pointer; z-index: 2000; }
-        #reset-key:hover { opacity: 1; }
+        /* 4. 结果卡片 */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(15px); }
+        .card { width: 280px; padding: 40px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div id="welcome-screen">
-        <h1>ENTER YEE'S SPACE</h1>
-        <div class="key-input-box">
-            <input type="text" id="api-key-input" placeholder="Paste your Google API Key here">
-            <button id="start-btn">ENTER</button>
-        </div>
-        <p class="note">Key is saved locally in your browser.<br>It will not be uploaded to GitHub.</p>
+        <h2 style="font-weight: 200; letter-spacing: 4px;">YEE'S SPACE</h2>
+        <input type="text" id="api-key-input" placeholder="Paste Gemini API Key Here">
+        <button id="start-btn">ENTER SPACE</button>
     </div>
 
-    <div id="reset-key" onclick="localStorage.removeItem('gemini_key'); location.reload();">RESET KEY</div>
+    <div id="upload-container">
+        <label for="file-input" class="upload-label">📸 UPLOAD PHOTO TO PARTICLE</label>
+        <input type="file" id="file-input" accept="image/*">
+    </div>
 
     <nav>
-        <div style="font-weight: bold;">YEE'S SPACE</div>
-        <div style="opacity: 0.5;">MEMORY LINK</div>
+        <div>YEE'S MEMORY</div>
+        <div>GEMINI PRO</div>
     </nav>
 
-    <div id="status-bar">
-        <div class="dot" id="status-dot"></div> 
-        <span id="status-text">Waiting for Key...</span>
-    </div>
-
     <div id="chat-area">
-        <div id="ai-reply">Waiting to start...</div>
-        <div id="user-speech"></div>
-        <input type="text" id="text-input" placeholder="Type or use microphone...">
+        <div id="ai-reply">你好 Yee，上传一张照片，让我们开始记忆旅程。</div>
+        <div id="user-speech" style="color: rgba(255,255,255,0.4); font-size: 14px;"></div>
     </div>
 
     <div id="controls">
         <div id="mic-btn">🎙️</div>
-        <button id="save-btn">GENERATE MEMORY CARD</button>
+        <button id="save-btn" style="margin-top:20px; background:none; border:1px solid #444; color:white; padding:8px 15px; border-radius:15px; font-size:10px; cursor:pointer;">SAVE MEMORY</button>
     </div>
 
-    <div id="overlay">
+    <div id="overlay" onclick="this.style.display='none'">
         <div class="card">
-            <div class="close-card" onclick="document.getElementById('overlay').style.display='none'">×</div>
-            <div class="card-date" id="date-str">DATE</div>
-            <div class="card-content" id="summary-text">Generating...</div>
-            <div class="card-tag" id="summary-tag">#</div>
+            <div id="summary-text" style="line-height:1.8;">正在生成总结...</div>
         </div>
     </div>
 
@@ -100,54 +74,32 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- 核心变量 ---
         let API_KEY = "";
+        let scene, camera, renderer, particles, geometry;
+        let audioContext, analyser, dataArray, isAudioReady = false;
         let conversationHistory = [];
-        let analyser, dataArray, audioContext, particles;
-        let isAudioReady = false;
 
-        // --- 1. 启动逻辑 (Key 管理) ---
-        const welcomeScreen = document.getElementById('welcome-screen');
-        const keyInput = document.getElementById('api-key-input');
-        const startBtn = document.getElementById('start-btn');
-
-        // 检查是否有存过的 Key
-        const savedKey = localStorage.getItem('gemini_key');
-        if (savedKey) {
-            API_KEY = savedKey;
-            welcomeScreen.style.display = 'none'; // 直接进入
-            initAudioSystem();
-        }
-
-        startBtn.onclick = () => {
-            const val = keyInput.value.trim();
-            if (val.length > 10) {
-                API_KEY = val;
-                localStorage.setItem('gemini_key', val); // 保存 Key
-                welcomeScreen.style.opacity = '0';
-                setTimeout(() => welcomeScreen.style.display = 'none', 500);
-                initAudioSystem();
-            } else {
-                alert("Please enter a valid API Key.");
-            }
+        // --- 1. 初始化环境 ---
+        document.getElementById('start-btn').onclick = () => {
+            const key = document.getElementById('api-key-input').value.trim();
+            if(key.length < 10) return alert("Please enter valid Key");
+            API_KEY = key;
+            document.getElementById('welcome-screen').style.display = 'none';
+            initThree();
+            initAudio();
         };
 
-        function updateStatus(text, color) {
-            document.getElementById('status-text').innerText = text;
-            const dot = document.getElementById('status-dot');
-            dot.style.background = color;
-            dot.style.boxShadow = `0 0 10px ${color}`;
+        function initThree() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            camera.position.z = 15;
+            animate();
         }
 
-        // --- 2. 音频与视觉初始化 ---
-        async function initAudioSystem() {
-            document.getElementById('ai-reply').innerText = "Hello Yee. I am listening.";
-            updateStatus("System Ready", "#00ffaa");
-
-            // 初始化 Three.js 背景
-            initVisuals();
-
-            // 尝试获取麦克风
+        async function initAudio() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -157,157 +109,158 @@
                 source.connect(analyser);
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
                 isAudioReady = true;
-            } catch (e) {
-                console.warn("Microphone access denied or not available.", e);
-                updateStatus("Audio Disabled (Type Only)", "orange");
-            }
+            } catch(e) { console.warn("Mic not available"); }
         }
 
-        // --- 3. Three.js 粒子特效 ---
-        function initVisuals() {
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-            camera.position.z = 10;
+        // --- 2. 图片转粒子核心逻辑 ---
+        document.getElementById('file-input').onchange = function(e) {
+            const file = e.target.files[0];
+            if(!file) return;
 
-            // 使用程序生成粒子（无需加载图片，防止黑屏）
-            const geometry = new THREE.BufferGeometry();
-            const count = 1500;
-            const pos = [];
-            const cols = [];
-            for(let i=0; i<count; i++) {
-                pos.push((Math.random()-0.5)*15, (Math.random()-0.5)*15, (Math.random()-0.5)*10);
-                cols.push(0, 1, Math.random()); // 青色系
-            }
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    createParticlesFromImage(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        function createParticlesFromImage(img) {
+            // 清除旧粒子
+            if(particles) scene.remove(particles);
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
             
-            const material = new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true, opacity: 0.8 });
+            // 为了性能，将图片压缩到 120x120 的采样点
+            const size = 120;
+            canvas.width = size;
+            canvas.height = size;
+            ctx.drawImage(img, 0, 0, size, size);
+            
+            const imgData = ctx.getImageData(0, 0, size, size).data;
+            const positions = [];
+            const colors = [];
+
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const i = (y * size + x) * 4;
+                    const r = imgData[i] / 255;
+                    const g = imgData[i+1] / 255;
+                    const b = imgData[i+2] / 255;
+                    const a = imgData[i+3] / 255;
+
+                    if(a > 0.1) { // 过滤透明像素
+                        // 居中坐标
+                        positions.push((x - size/2) * 0.12, -(y - size/2) * 0.12, 0);
+                        colors.push(r, g, b);
+                    }
+                }
+            }
+
+            geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.07,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8
+            });
+
             particles = new THREE.Points(geometry, material);
             scene.add(particles);
-
-            function animate() {
-                requestAnimationFrame(animate);
-                let vol = 0;
-                if(isAudioReady && analyser) {
-                    analyser.getByteFrequencyData(dataArray);
-                    vol = dataArray.reduce((a,b)=>a+b) / dataArray.length;
-                }
-                
-                // 粒子旋转与呼吸
-                particles.rotation.y += 0.001;
-                const scale = 1 + (vol / 255) * 0.3;
-                particles.scale.set(scale, scale, scale);
-                renderer.render(scene, camera);
-            }
-            animate();
+            
+            document.getElementById('ai-reply').innerText = "图片已凝结为记忆粒子。";
         }
 
-        // --- 4. Gemini API 交互 (修复了模型名称) ---
-        async function chatWithGemini(text) {
-            if(!text) return;
-            
-            document.getElementById('user-speech').innerText = `“ ${text} ”`;
-            document.getElementById('ai-reply').innerText = "Thinking...";
-            updateStatus("Connecting...", "cyan");
+        // --- 3. 动画循环 ---
+        function animate() {
+            requestAnimationFrame(animate);
+            let vol = 0;
+            if(isAudioReady && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                vol = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            }
 
+            if(particles) {
+                const posArr = geometry.attributes.position.array;
+                const time = performance.now() * 0.002;
+                for (let i = 0; i < posArr.length; i += 3) {
+                    // 粒子随正弦波和声音起伏
+                    const wave = Math.sin(time + posArr[i] * 0.5);
+                    posArr[i + 2] = wave * (0.2 + vol * 0.03); 
+                }
+                geometry.attributes.position.needsUpdate = true;
+                particles.rotation.y += 0.001; // 缓慢自转
+            }
+            renderer.render(scene, camera);
+        }
+
+        // --- 4. 语音/聊天交互 ---
+        async function runChat(text) {
+            if(!text) return;
             conversationHistory.push({ role: "user", parts: [{ text: text }] });
+            document.getElementById('ai-reply').innerText = "Thinking...";
 
             try {
-                // *** 关键修复：使用 gemini-pro 模型，兼容性更好 ***
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
-                
-                const response = await fetch(url, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: conversationHistory })
                 });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error?.message || "Server Error");
-                }
-
+                const data = await res.json();
                 const reply = data.candidates[0].content.parts[0].text;
                 document.getElementById('ai-reply').innerText = reply;
                 conversationHistory.push({ role: "model", parts: [{ text: reply }] });
-                updateStatus("Gemini Active", "#00ffaa");
-
-            } catch (error) {
-                console.error(error);
-                document.getElementById('ai-reply').innerText = "Error: " + error.message;
-                updateStatus("API Error", "red");
-                if(error.message.includes("key") || error.message.includes("403")) {
-                    alert("Invalid API Key. Please click 'RESET KEY' at top-left.");
-                }
-            }
+            } catch (e) { document.getElementById('ai-reply').innerText = "API 连接失败"; }
         }
 
-        // --- 5. 输入交互 ---
-        const inputField = document.getElementById('text-input');
-        inputField.addEventListener('keypress', (e) => {
-            if(e.key === 'Enter') {
-                chatWithGemini(e.target.value);
-                e.target.value = '';
-            }
-        });
-
-        // 语音识别
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognition = new Speech();
-            recognition.lang = 'zh-CN'; // 或 'en-US'
-            recognition.interimResults = true;
-            
-            const micBtn = document.getElementById('mic-btn');
-            micBtn.onclick = () => {
-                try { recognition.start(); micBtn.classList.add('active'); } catch(e){}
+        // 语音识别设置
+        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if(Speech) {
+            const rec = new Speech();
+            rec.lang = 'zh-CN';
+            document.getElementById('mic-btn').onclick = () => {
+                rec.start();
+                document.getElementById('mic-btn').classList.add('active');
             };
-
-            recognition.onresult = (e) => {
-                const transcript = Array.from(e.results).map(r=>r[0].transcript).join('');
-                document.getElementById('user-speech').innerText = transcript;
-                if(e.results[0].isFinal) {
-                    micBtn.classList.remove('active');
-                    chatWithGemini(transcript);
-                }
+            rec.onresult = (e) => {
+                const t = e.results[0][0].transcript;
+                document.getElementById('user-speech').innerText = `“ ${t} ”`;
+                runChat(t);
             };
-            recognition.onend = () => micBtn.classList.remove('active');
-        } else {
-            document.getElementById('mic-btn').style.display = 'none';
+            rec.onend = () => document.getElementById('mic-btn').classList.remove('active');
         }
 
-        // --- 6. 生成总结卡片 ---
+        // 生成总结卡片
         document.getElementById('save-btn').onclick = async () => {
             document.getElementById('overlay').style.display = 'flex';
-            document.getElementById('date-str').innerText = new Date().toLocaleDateString().toUpperCase();
-            
             if(conversationHistory.length === 0) {
-                document.getElementById('summary-text').innerText = "No memories yet.";
+                document.getElementById('summary-text').innerText = "还没有对话记录。";
                 return;
             }
-
+            const prompt = "总结我们的对话，写一段诗意的感悟，30字以内。";
             try {
-                const prompt = "Please summarize our conversation in a poetic way (within 30 words) and add a mood hashtag at the end.";
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        contents: [...conversationHistory, { role: "user", parts: [{ text: prompt }] }] 
-                    })
+                    body: JSON.stringify({ contents: [...conversationHistory, { role:"user", parts:[{text:prompt}]}] })
                 });
-                const data = await response.json();
-                const text = data.candidates[0].content.parts[0].text;
-                const parts = text.split('#');
-                document.getElementById('summary-text').innerText = parts[0];
-                document.getElementById('summary-tag').innerText = parts[1] ? '#' + parts[1] : '#Memory';
-            } catch(e) {
-                document.getElementById('summary-text').innerText = "Failed to generate summary.";
-            }
+                const data = await res.json();
+                document.getElementById('summary-text').innerText = data.candidates[0].content.parts[0].text;
+            } catch(e) { document.getElementById('summary-text').innerText = "感悟生成失败"; }
         };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
