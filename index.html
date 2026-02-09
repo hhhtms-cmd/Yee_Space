@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yee's Space (Stable)</title>
+    <title>Yee's Space (Auto-Detect)</title>
     <style>
         :root { --main: #00ffaa; --bg: #050505; }
         body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; overflow: hidden; }
@@ -22,6 +22,7 @@
         #chat-container { position: absolute; top: 160px; width: 100%; text-align: center; z-index: 10; padding: 0 20px; box-sizing: border-box; }
         #ai-msg { font-size: 19px; line-height: 1.6; min-height: 40px; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
         #user-msg { font-size: 14px; opacity: 0.5; margin-top: 15px; font-style: italic; }
+        #model-tag { font-size: 10px; color: #555; margin-top: 5px; border: 1px solid #333; padding: 2px 8px; border-radius: 10px; display: inline-block; }
 
         #bottom-ctrl { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 100; display: flex; flex-direction: column; align-items: center; }
         #mic-circle { width: 65px; height: 65px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 28px; cursor: pointer; margin-bottom: 20px; transition: 0.3s; }
@@ -50,7 +51,8 @@
     </div>
 
     <div id="chat-container">
-        <div id="ai-msg">等待连接...</div>
+        <div id="ai-msg">正在自动侦测最佳模型...</div>
+        <div id="model-tag">检测中...</div>
         <div id="user-msg"></div>
     </div>
 
@@ -73,7 +75,8 @@
         import * as THREE from 'three';
 
         // --- 核心变量 ---
-        let API_KEY = localStorage.getItem('yee_final_key'); 
+        let API_KEY = localStorage.getItem('yee_auto_key'); 
+        let CURRENT_MODEL = "gemini-1.5-flash"; // 默认备份
         let scene, camera, renderer, particles;
         let history = []; 
 
@@ -86,7 +89,7 @@
         window.saveKey = function() {
             const input = document.getElementById('key-input').value.trim();
             if (input.startsWith("AIza")) {
-                localStorage.setItem('yee_final_key', input);
+                localStorage.setItem('yee_auto_key', input);
                 API_KEY = input;
                 location.reload(); 
             } else {
@@ -96,15 +99,52 @@
 
         window.resetKey = function() {
             if(confirm("确定要清除 Key 并重新输入吗？")) {
-                localStorage.removeItem('yee_final_key');
+                localStorage.removeItem('yee_auto_key');
                 location.reload();
             }
         };
 
-        // --- 2. 3D 粒子场景 ---
-        function initSpace() {
-            document.getElementById('ai-msg').innerText = "星际连线成功。请上传照片或说话。";
-            
+        // --- 2. 自动侦测模型 (关键修复) ---
+        async function autoDetectModel() {
+            try {
+                // 请求 Google 列出所有可用模型
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+                const data = await res.json();
+                
+                if(data.models) {
+                    // 寻找包含 'generateContent' 功能的 Gemini 模型
+                    const validModels = data.models.filter(m => 
+                        m.name.includes("gemini") && 
+                        m.supportedGenerationMethods.includes("generateContent")
+                    );
+
+                    if(validModels.length > 0) {
+                        // 优先找 flash，没有就找 pro，再没有就用第一个
+                        let best = validModels.find(m => m.name.includes("1.5-flash"));
+                        if(!best) best = validModels.find(m => m.name.includes("1.5-pro"));
+                        if(!best) best = validModels[0];
+                        
+                        // 这里的 name 格式通常是 "models/gemini-1.5-flash"
+                        // 我们只需要后面那部分，或者直接用全名
+                        CURRENT_MODEL = best.name.replace("models/", "");
+                        document.getElementById('model-tag').innerText = "已连接: " + CURRENT_MODEL;
+                        document.getElementById('ai-msg').innerText = "模型适配成功。请说话或上传照片。";
+                        return;
+                    }
+                }
+                throw new Error("未找到可用模型");
+            } catch(e) {
+                console.error(e);
+                // 如果侦测失败，回退到最最基础的 1.0 pro
+                CURRENT_MODEL = "gemini-pro";
+                document.getElementById('model-tag').innerText = "连接: 基础版 (Fallback)";
+                document.getElementById('ai-msg').innerText = "自动侦测失败，使用基础模型。请尝试对话。";
+            }
+        }
+
+        // --- 3. 3D 场景 ---
+        async function initSpace() {
+            // 先初始化 3D，再侦测模型
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -114,6 +154,9 @@
 
             createParticles(); 
             animate();
+            
+            // 执行模型侦测
+            await autoDetectModel();
         }
 
         function createParticles(positions = null, colors = null) {
@@ -121,135 +164,4 @@
             const geo = new THREE.BufferGeometry();
             
             if (positions) {
-                // 照片模式
-                geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-                geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            } else {
-                // 默认随机模式
-                const pos = [], col = [];
-                for(let i=0; i<1500; i++) {
-                    pos.push((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*10);
-                    col.push(0, 1, 0.7); 
-                }
-                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-                geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-            }
-
-            particles = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true, opacity: 0.8 }));
-            scene.add(particles);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if(particles) {
-                particles.rotation.y += 0.001; 
-                particles.position.y = Math.sin(performance.now()*0.001)*0.2;
-            }
-            renderer.render(scene, camera);
-        }
-
-        // --- 3. 核心：对话功能 (改回 gemini-pro) ---
-        async function chat(text) {
-            document.getElementById('user-msg').innerText = text;
-            document.getElementById('ai-msg').innerText = "Thinking...";
-            history.push({ role: "user", parts: [{ text: text }] });
-
-            try {
-                // *** 修复点：改回最稳定的 gemini-pro ***
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: history })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    console.error("API Error Details:", data);
-                    const msg = data.error?.message || "未知错误";
-                    if(msg.includes("Key")) throw new Error("API Key 无效");
-                    throw new Error(msg);
-                }
-
-                const reply = data.candidates[0].content.parts[0].text;
-                document.getElementById('ai-msg').innerText = reply;
-                history.push({ role: "model", parts: [{ text: reply }] });
-
-            } catch (e) {
-                document.getElementById('ai-msg').innerHTML = `<span style="color:#ff5555">连接断开: ${e.message}</span>`;
-            }
-        }
-
-        // --- 4. 功能绑定 ---
-        // 语音
-        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (Speech) {
-            const rec = new Speech();
-            rec.lang = 'zh-CN';
-            const btn = document.getElementById('mic-circle');
-            btn.onclick = () => { try { rec.start(); btn.classList.add('active'); } catch(e){} };
-            rec.onresult = (e) => { chat(e.results[0][0].transcript); };
-            rec.onend = () => btn.classList.remove('active');
-        }
-
-        // 照片
-        document.getElementById('file-in').onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const img = new Image();
-                img.onload = () => {
-                    const cvs = document.createElement('canvas');
-                    const ctx = cvs.getContext('2d');
-                    const size = 100; 
-                    cvs.width = size; cvs.height = size;
-                    ctx.drawImage(img, 0, 0, size, size);
-                    const data = ctx.getImageData(0,0,size,size).data;
-                    const p=[], c=[];
-                    for(let y=0; y<size; y++){
-                        for(let x=0; x<size; x++){
-                            const i = (y*size+x)*4;
-                            if(data[i+3]>100) {
-                                p.push((x-size/2)*0.15, -(y-size/2)*0.15, 0);
-                                c.push(data[i]/255, data[i+1]/255, data[i+2]/255);
-                            }
-                        }
-                    }
-                    createParticles(p, c);
-                    document.getElementById('ai-msg').innerText = "图片已转化为记忆粒子。";
-                };
-                img.src = ev.target.result;
-            };
-            reader.readAsDataURL(file);
-        };
-
-        // 总结
-        document.getElementById('gen-card').onclick = async () => {
-            if(history.length===0) return alert("请先对话");
-            document.getElementById('card-modal').style.display = 'flex';
-            
-            try {
-                // 总结也使用 gemini-pro
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [...history, { role: "user", parts: [{ text: "用唯美的中文总结我们的对话，30字以内" }] }] })
-                });
-                const data = await res.json();
-                document.getElementById('card-text').innerText = data.candidates[0].content.parts[0].text;
-            } catch(e) {
-                document.getElementById('card-text').innerText = "生成失败，请检查网络";
-            }
-        };
-
-        window.onresize = () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
-    </script>
-</body>
-</html>
+                geo.setAttribute('position
